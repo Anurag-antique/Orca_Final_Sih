@@ -1,0 +1,18 @@
+{
+  "name": "orca-marine-intelligence",
+  "version": "1.0.0",
+  "description": "ORCA - Agentic AI Marine Intelligence Platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:backend": "npm --prefix backend start",
+    "test": "node backend/test_master.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
