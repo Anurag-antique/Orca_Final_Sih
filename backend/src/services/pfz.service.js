@@ -1,4 +1,4 @@
-const { activePFZProvider } = require('../providers/pfz');
+const { activePFZProvider } = require("../providers/pfz");
 
 class PFZService {
   constructor(provider = activePFZProvider) {

@@ -12,4 +12,16 @@ module.exports = {
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   databaseUrl: process.env.DATABASE_URL,
+  pfz: {
+    timeoutMs: parseInt(process.env.PFZ_TIMEOUT_MS, 10) || 4000,
+    sstSource: process.env.PFZ_SST_SOURCE || "open-meteo",
+    chlorophyllSource: process.env.PFZ_CHLOROPHYLL_SOURCE || "baseline",
+    fallbackEnabled: process.env.PFZ_FALLBACK_ENABLED !== "false",
+  },
+  incois: {
+    baseUrl:
+      process.env.INCOIS_ERDDAP_URL || "https://erddap.incois.gov.in/erddap",
+    timeoutMs: parseInt(process.env.INCOIS_TIMEOUT_MS, 10) || 4000,
+    fallbackEnabled: process.env.INCOIS_FALLBACK_ENABLED !== "false",
+  },
 };
