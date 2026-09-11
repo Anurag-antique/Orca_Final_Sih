@@ -12,30 +12,3 @@ body {
   background-color: #030712;
   color: #f8fafc;
 }
-
-.map-tiles-dark {
-  filter: grayscale(1) invert(1) brightness(.7) contrast(.85);
-}
-
-.marine-map-page {
-  container-type: inline-size;
-}
-
-.marine-map-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@container (min-width: 900px) {
-  .marine-map-header {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .marine-map-controls {
-    flex-wrap: nowrap;
-  }
-
-  .marine-map-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-  }
-}

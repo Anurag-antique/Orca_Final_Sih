@@ -7,8 +7,8 @@ class RealOpenMeteoWeatherProvider extends BaseProvider {
   }
 
   async getWeather(location, datetime = new Date()) {
-    const lat = parseFloat(location?.lat ?? 18.9220);
-    const lon = parseFloat(location?.lon ?? 72.8347);
+    const lat = parseFloat(location?.lat) || 18.9220;
+    const lon = parseFloat(location?.lon) || 72.8347;
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover`;
 
@@ -19,7 +19,6 @@ class RealOpenMeteoWeatherProvider extends BaseProvider {
 
     const data = await res.json();
     const cur = data.current || {};
-    if (!Number.isFinite(cur.wind_speed_10m)) throw new Error('Open-Meteo returned no wind_speed_10m measurement');
 
     const getCardinalDirection = (deg) => {
       const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];

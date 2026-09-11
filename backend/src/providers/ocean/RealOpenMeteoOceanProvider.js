@@ -19,7 +19,6 @@ class RealOpenMeteoOceanProvider extends BaseProvider {
 
     const data = await res.json();
     const cur = data.current || {};
-    if (!Number.isFinite(cur.wave_height)) throw new Error('Open-Meteo returned no wave_height measurement');
 
     const getCardinalDirection = (deg) => {
       const directions = [
