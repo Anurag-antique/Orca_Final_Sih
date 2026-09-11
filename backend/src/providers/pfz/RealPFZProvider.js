@@ -1,16 +1,10 @@
 const BaseProvider = require("../base/BaseProvider");
 const config = require("../../config");
-const incoisDataService = require("../../services/incoisDataService");
 const MockPFZProvider = require("./MockPFZProvider");
 
-class RealINCOISPFZProvider extends BaseProvider {
+class RealPFZProvider extends BaseProvider {
   constructor() {
-    super(
-      "ORCA-INCOIS-PFZ-LiveProvider",
-      "POTENTIAL_FISHING_ZONE",
-      "1.0.0",
-      false,
-    );
+    super("ORCA-PFZ-LiveProvider", "POTENTIAL_FISHING_ZONE", "1.0.0", false);
     this.mockProvider = new MockPFZProvider();
   }
 
@@ -19,37 +13,8 @@ class RealINCOISPFZProvider extends BaseProvider {
     const lon = parseFloat(location?.lon) || 72.8347;
 
     try {
-      const params = await incoisDataService.fetchAllParameters(lat, lon);
-
-      if (!params.sst && !params.chlorophyll) {
-        throw new Error("No INCOIS parameters available");
-      }
-
-      const liveSst = params.sst ? params.sst.value : null;
-      const liveChl = params.chlorophyll ? params.chlorophyll.value : null;
-
-      const zones = this._buildZones(lat, lon, liveSst, liveChl);
-
-      const provenance = {
-        sst: params.sst
-          ? {
-              datasetId: params.sst.datasetId,
-              timestamp: params.sst.dataTimestamp,
-              value: params.sst.value,
-              unit: params.sst.unit,
-              temporalRange: params.sst.temporalRange,
-            }
-          : { mode: "unavailable" },
-        chlorophyll: params.chlorophyll
-          ? {
-              datasetId: params.chlorophyll.datasetId,
-              timestamp: params.chlorophyll.dataTimestamp,
-              value: params.chlorophyll.value,
-              unit: params.chlorophyll.unit,
-              temporalRange: params.chlorophyll.temporalRange,
-            }
-          : { mode: "unavailable" },
-      };
+      const sst = await this._fetchLiveSST(lat, lon);
+      const zones = this._buildZones(lat, lon, sst);
 
       return this.standardizeResponse(
         {
@@ -58,50 +23,65 @@ class RealINCOISPFZProvider extends BaseProvider {
           zoneCount: zones.length,
           nearestZone: zones[0] || null,
           zones,
+          source: {
+            mode: "live",
+            provider: "Open-Meteo Marine / ORCA PFZ Engine",
+            isDemoData: false,
+            isFallback: false,
+            sstMode: "live",
+            chlorophyllMode: "baseline_estimate",
+            thermalGradientMode: "demo",
+          },
         },
         {
-          dataset:
-            "INCOIS ERDDAP - NOAA AVHRR SST + Oceansat-2 OCM Chlorophyll (ARCHIVAL)",
-          origin: "INCOIS ERDDAP Server (erddap.incois.gov.in)",
-          updateFrequency: "Static archive",
-          mode: "incois-archive",
-          isFallback: false,
-          sstMode: params.sst ? "archive" : "unavailable",
-          chlorophyllMode: params.chlorophyll ? "archive" : "unavailable",
-          thermalGradientMode: "demo",
-          provenance,
-          note: "INCOIS ERDDAP provides archival data (SST: 2002-2011, CHL: 2011-2020), not real-time.",
+          dataset: "Open-Meteo Marine SST + ORCA PFZ Template Composite",
+          origin: "ECMWF WAM / NEMO Live Model (SST only)",
+          updateFrequency: "Hourly SST / Static Zone Templates",
         },
       );
     } catch (err) {
-      console.warn("[RealINCOISPFZProvider] INCOIS fetch failed:", err.message);
+      console.warn(
+        "[RealPFZProvider] Live fetch failed, falling back to mock:",
+        err.message,
+      );
 
-      if (!config.incois.fallbackEnabled) {
+      if (!config.pfz.fallbackEnabled) {
         throw err;
       }
 
       const fallback = await this.mockProvider.getPFZs(location, date);
-
       if (fallback && fallback.source) {
         fallback.source.mode = "fallback";
         fallback.source.isFallback = true;
         fallback.source.isDemoData = true;
       }
-
       return fallback;
     }
   }
 
-  _buildZones(lat, lon, liveSst, liveChl) {
+  async _fetchLiveSST(lat, lon) {
+    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=sea_surface_temperature`;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(config.pfz.timeoutMs),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Open-Meteo returned HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const sst = data?.current?.sea_surface_temperature;
+
+    if (typeof sst !== "number" || sst < 10 || sst > 35) {
+      throw new Error(`Invalid SST value: ${sst}`);
+    }
+
+    return sst;
+  }
+
+  _buildZones(lat, lon, liveSst) {
     const isKochi = lat < 12.0;
-    const fallbackChl = 0.95;
-
-    // Use archival SST or fall back to template values
-    const sstMumbai = liveSst != null ? liveSst : 27.6;
-    const sstAlibaug = liveSst != null ? liveSst - 0.4 : 27.2;
-    const sstKochi = liveSst != null ? liveSst + 0.2 : 28.1;
-
-    const chl = liveChl != null ? liveChl : fallbackChl;
+    const baselineChlorophyll = 0.95; // Copernicus seasonal baseline
 
     if (isKochi) {
       return [
@@ -115,8 +95,8 @@ class RealINCOISPFZProvider extends BaseProvider {
           bearingCardinal: "W",
           confidenceRatingPct: 88,
           recommendationLabel: "Potentially Favourable Fishing Zone",
-          seaSurfaceTempC: parseFloat(sstKochi.toFixed(1)),
-          chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
+          seaSurfaceTempC: liveSst,
+          chlorophyllConcentrationMgM3: baselineChlorophyll,
           thermalGradientCPerKm: 0.12,
           targetSpecies: [
             "Oil Sardine (Sardinella longiceps)",
@@ -152,8 +132,8 @@ class RealINCOISPFZProvider extends BaseProvider {
         bearingCardinal: "W",
         confidenceRatingPct: 86,
         recommendationLabel: "Potentially Favourable Fishing Zone",
-        seaSurfaceTempC: parseFloat(sstMumbai.toFixed(1)),
-        chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
+        seaSurfaceTempC: liveSst,
+        chlorophyllConcentrationMgM3: baselineChlorophyll,
         thermalGradientCPerKm: 0.09,
         targetSpecies: ["Indian Mackerel", "Carangids (Trevally)", "Seer Fish"],
         depthRangeMeters: "35 - 52m",
@@ -181,8 +161,8 @@ class RealINCOISPFZProvider extends BaseProvider {
         bearingCardinal: "SW",
         confidenceRatingPct: 79,
         recommendationLabel: "Potentially Favourable Fishing Zone",
-        seaSurfaceTempC: parseFloat(sstAlibaug.toFixed(1)),
-        chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
+        seaSurfaceTempC: liveSst,
+        chlorophyllConcentrationMgM3: baselineChlorophyll,
         thermalGradientCPerKm: 0.08,
         targetSpecies: ["Yellowfin Tuna", "Ribbonfish", "Anchovies"],
         depthRangeMeters: "45 - 65m",
@@ -204,4 +184,4 @@ class RealINCOISPFZProvider extends BaseProvider {
   }
 }
 
-module.exports = RealINCOISPFZProvider;
+module.exports = RealPFZProvider;

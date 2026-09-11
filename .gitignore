@@ -10,3 +10,4 @@ coverage
 .env.*.local
 __MACOSX/
 *.img
+frontend/.env

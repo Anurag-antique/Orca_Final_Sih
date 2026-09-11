@@ -8,9 +8,9 @@ const marineContextService = require('../services/marineContext.service');
 
 const parseLocation = (req) => {
   return {
-    lat: req.query.lat ? parseFloat(req.query.lat) : 18.9220,
+    lat: req.query.lat ? parseFloat(req.query.lat) : 18.922,
     lon: req.query.lon ? parseFloat(req.query.lon) : 72.8347,
-    sectorName: req.query.sector || 'Mumbai Coast'
+    sectorName: req.query.sector || "Mumbai Coast",
   };
 };
 
