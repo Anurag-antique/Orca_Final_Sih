@@ -2,8 +2,12 @@ const thresholds = require('../thresholds');
 
 class CycloneAlertRule {
   static evaluate(cycloneAlert, advisoryList = []) {
-    const isCycloneActive = cycloneAlert && (cycloneAlert.active || cycloneAlert.category?.includes('CYCLONE') || cycloneAlert.category?.includes('DEPRESSION'));
-    const hasHighWaveAlert = advisoryList.some(a => a.severity === 'WARNING' || a.type?.includes('HIGH_WAVE'));
+    // Trust the provider's explicit `active` boolean rather than substring-matching
+    // `category` — categories like "NO_CYCLONE_THREAT" contain the substring
+    // "CYCLONE" and were previously false-triggering a CRITICAL override on
+    // every request, even with calm conditions and no real cyclone.
+    const isCycloneActive = !!(cycloneAlert && cycloneAlert.active === true);
+    const hasHighWaveAlert = advisoryList.some(a => a.severity === 'WARNING' || a.severity === 'CRITICAL');
 
     let subScore = 0;
     let severity = 'LOW';
