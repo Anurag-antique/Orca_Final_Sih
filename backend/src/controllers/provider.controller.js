@@ -1,15 +1,15 @@
-const weatherService = require('../services/weather.service');
-const oceanService = require('../services/ocean.service');
-const pfzService = require('../services/pfz.service');
-const advisoryService = require('../services/advisory.service');
-const geospatialService = require('../services/geospatial.service');
-const sourceService = require('../services/source.service');
+const weatherService = require("../services/weather.service");
+const oceanService = require("../services/ocean.service");
+const pfzService = require("../services/pfz.service");
+const advisoryService = require("../services/advisory.service");
+const geospatialService = require("../services/geospatial.service");
+const sourceService = require("../services/source.service");
 
 const parseLocation = (req) => {
   return {
-    lat: req.query.lat ? parseFloat(req.query.lat) : 18.9220,
+    lat: req.query.lat ? parseFloat(req.query.lat) : 18.922,
     lon: req.query.lon ? parseFloat(req.query.lon) : 72.8347,
-    sectorName: req.query.sector || 'Mumbai Coast'
+    sectorName: req.query.sector || "Mumbai Coast",
   };
 };
 
@@ -81,5 +81,5 @@ module.exports = {
   getPFZs,
   getAdvisories,
   getGeospatialZones,
-  getDataSources
+  getDataSources,
 };
