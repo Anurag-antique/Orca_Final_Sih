@@ -82,7 +82,7 @@ export default function MapPage() {
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className={`rounded-full border px-2 py-1 ${pfzLoading ? 'border-slate-700 text-slate-400' : pfzError ? 'border-amber-800 bg-amber-950 text-amber-200' : pfz?.source?.isFallback ? 'border-yellow-800 bg-yellow-950 text-yellow-200' : 'border-emerald-800 bg-emerald-950 text-emerald-200'}`}>
-          {pfzLoading ? 'Loading INCOIS PFZ…' : pfzError ? 'Official INCOIS PFZ unavailable' : pfz?.source?.isFallback ? 'INCOIS PFZ fallback (demo zones)' : `INCOIS ${pfz?.source?.mode === 'incois-archive' ? 'archive' : 'live'} · ${pfz?.data?.zoneCount || 0} zones · advisory ${formatAdvisoryDate(pfz?.source?.advisoryDate)}`}
+          {pfzLoading ? 'Loading INCOIS PFZ…' : pfzError ? 'Official INCOIS PFZ unavailable' : pfz?.source?.isFallback ? 'INCOIS PFZ fallback (demo zones)' : `INCOIS PFZ live · ${pfz?.data?.zoneCount || 0} lines · advisory ${formatAdvisoryDate(pfz?.source?.advisoryDate)}`}
         </span>
         {pfzError && <span className="text-slate-400">No PFZ geometry is shown until a current official response is available. ({pfzError})</span>}
         {pfz?.source?.isFallback && <span className="text-yellow-400/70">{pfz.source.notice}</span>}

@@ -1,206 +1,92 @@
-const BaseProvider = require("../base/BaseProvider");
-const config = require("../../config");
-const incoisDataService = require("../../services/incoisDataService");
-const MockPFZProvider = require("./MockPFZProvider");
+const BaseProvider = require('../base/BaseProvider');
+
+const SOURCE_URL = 'https://www.incois.gov.in/geoserver/PFZ_Automation/ows';
+const WEBGIS_URL = 'https://www.incois.gov.in/MarineFisheries/PfzWebGis';
+const SECTOR_STATES = {
+  'Mumbai Coast': ['MAHARASHTRA', 'GOA', 'KARNATAKA'],
+  'Kochi Harbor': ['KERALA'],
+  'Chennai Offshore': ['SOUTH TAMILNADU', 'NORTH TAMILNADU'],
+  Visakhapatnam: ['SOUTH ANDHRAPRADESH', 'NORTH ANDHRAPRADESH', 'ANDHRA PRADESH', 'ODISHA'],
+  Porbandar: ['GUJARAT']
+};
+
+const dayOfYear = date => Math.floor((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 0)) / 86400000);
+const stamp = date => `${date.getUTCFullYear()}-${String(dayOfYear(date)).padStart(3, '0')}`;
 
 class RealINCOISPFZProvider extends BaseProvider {
   constructor() {
-    super(
-      "ORCA-INCOIS-PFZ-LiveProvider",
-      "POTENTIAL_FISHING_ZONE",
-      "1.0.0",
-      false,
-    );
-    this.mockProvider = new MockPFZProvider();
+    super('INCOIS-PFZ-WebGIS-WFS', 'POTENTIAL_FISHING_ZONE', '1.0.0', false);
   }
 
   async getPFZs(location, date = new Date()) {
-    const lat = parseFloat(location?.lat) || 18.922;
-    const lon = parseFloat(location?.lon) || 72.8347;
-
-    try {
-      const params = await incoisDataService.fetchAllParameters(lat, lon);
-
-      if (!params.sst && !params.chlorophyll) {
-        throw new Error("No INCOIS parameters available");
+    const sector = location?.sectorName || 'all';
+    const query = new URLSearchParams({
+      service: 'WFS', version: '1.1.0', request: 'GetFeature',
+      typeName: 'PFZ_Automation:pfzlines', outputFormat: 'application/json'
+    });
+    let response;
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        response = await fetch(`${SOURCE_URL}?${query}`, {
+          headers: { Accept: 'application/json', 'User-Agent': 'ORCA-Marine-Map/1.0' },
+          signal: AbortSignal.timeout(15000)
+        });
+        if (response.ok) break;
+        lastError = new Error(`INCOIS PFZ WFS returned HTTP ${response.status}`);
+        if (response.status !== 403 && response.status < 500) break;
+      } catch (error) {
+        lastError = error;
       }
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+    if (!response) throw lastError || new Error('INCOIS PFZ WFS request failed');
+    if (!response.ok) throw lastError || new Error(`INCOIS PFZ WFS returned HTTP ${response.status}`);
+    const geojson = await response.json();
+    if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) throw new Error('INCOIS PFZ WFS returned an invalid FeatureCollection');
 
-      const liveSst = params.sst ? params.sst.value : null;
-      const liveChl = params.chlorophyll ? params.chlorophyll.value : null;
+    const states = SECTOR_STATES[sector];
+    const features = geojson.features.filter(feature => !states || states.includes(String(feature.properties?.State_Name || '').toUpperCase()));
+    const dates = [...new Set(features.map(feature => {
+      const properties = feature.properties || {};
+      return properties.Year && properties.Julian_day ? `${properties.Year}-${String(properties.Julian_day).padStart(3, '0')}` : null;
+    }).filter(Boolean))];
+    const acceptedDates = [-1, 0, 1].map(offset => stamp(new Date(date.getTime() + offset * 86400000)));
+    if (features.length && (dates.length !== 1 || !acceptedDates.includes(dates[0]))) {
+      throw new Error(`INCOIS PFZ data is dated ${dates.join(', ') || 'unknown'}; expected ${acceptedDates.join(', ')}`);
+    }
 
-      const zones = this._buildZones(lat, lon, liveSst, liveChl);
-
-      const provenance = {
-        sst: params.sst
-          ? {
-              datasetId: params.sst.datasetId,
-              timestamp: params.sst.dataTimestamp,
-              value: params.sst.value,
-              unit: params.sst.unit,
-              temporalRange: params.sst.temporalRange,
-            }
-          : { mode: "unavailable" },
-        chlorophyll: params.chlorophyll
-          ? {
-              datasetId: params.chlorophyll.datasetId,
-              timestamp: params.chlorophyll.dataTimestamp,
-              value: params.chlorophyll.value,
-              unit: params.chlorophyll.unit,
-              temporalRange: params.chlorophyll.temporalRange,
-            }
-          : { mode: "unavailable" },
+    const zones = features.map(feature => {
+      const properties = feature.properties || {};
+      return {
+        id: feature.id,
+        name: `INCOIS PFZ ${properties.State_Name || ''} ${properties.Sno || ''}`.trim(),
+        state: properties.State_Name,
+        category: properties.Category,
+        year: properties.Year,
+        julianDay: properties.Julian_day,
+        advisoryId: properties.UID,
+        lengthKm: properties.Length,
+        geometry: feature.geometry
       };
+    });
 
-      return this.standardizeResponse(
-        {
-          queryLocation: { lat, lon },
-          queryDate: new Date(date).toISOString(),
-          zoneCount: zones.length,
-          nearestZone: zones[0] || null,
-          zones,
-        },
-        {
-          dataset:
-            "INCOIS ERDDAP - NOAA AVHRR SST + Oceansat-2 OCM Chlorophyll (ARCHIVAL)",
-          origin: "INCOIS ERDDAP Server (erddap.incois.gov.in)",
-          updateFrequency: "Static archive",
-          mode: "incois-archive",
-          isFallback: false,
-          sstMode: params.sst ? "archive" : "unavailable",
-          chlorophyllMode: params.chlorophyll ? "archive" : "unavailable",
-          thermalGradientMode: "demo",
-          provenance,
-          note: "INCOIS ERDDAP provides archival data (SST: 2002-2011, CHL: 2011-2020), not real-time.",
-        },
-      );
-    } catch (err) {
-      console.warn("[RealINCOISPFZProvider] INCOIS fetch failed:", err.message);
-
-      if (!config.incois.fallbackEnabled) {
-        throw err;
-      }
-
-      const fallback = await this.mockProvider.getPFZs(location, date);
-
-      if (fallback && fallback.source) {
-        fallback.source.mode = "fallback";
-        fallback.source.isFallback = true;
-        fallback.source.isDemoData = true;
-      }
-
-      return fallback;
-    }
-  }
-
-  _buildZones(lat, lon, liveSst, liveChl) {
-    const isKochi = lat < 12.0;
-    const fallbackChl = 0.95;
-
-    // Use archival SST or fall back to template values
-    const sstMumbai = liveSst != null ? liveSst : 27.6;
-    const sstAlibaug = liveSst != null ? liveSst - 0.4 : 27.2;
-    const sstKochi = liveSst != null ? liveSst + 0.2 : 28.1;
-
-    const chl = liveChl != null ? liveChl : fallbackChl;
-
-    if (isKochi) {
-      return [
-        {
-          id: "pfz_kerala_south_01",
-          name: "Kochi Offshore Upwelling Zone Charlie",
-          centerLat: 9.96,
-          centerLon: 76.04,
-          distanceKm: 18.4,
-          bearingDegrees: 275,
-          bearingCardinal: "W",
-          confidenceRatingPct: 88,
-          recommendationLabel: "Potentially Favourable Fishing Zone",
-          seaSurfaceTempC: parseFloat(sstKochi.toFixed(1)),
-          chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
-          thermalGradientCPerKm: 0.12,
-          targetSpecies: [
-            "Oil Sardine (Sardinella longiceps)",
-            "Indian Mackerel",
-            "Squid (Loligo duvauceli)",
-          ],
-          depthRangeMeters: "30 - 48m",
-          validUntil: new Date(Date.now() + 86400000).toISOString(),
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [75.98, 9.98],
-                [76.08, 10.02],
-                [76.12, 9.92],
-                [76.01, 9.88],
-                [75.98, 9.98],
-              ],
-            ],
-          },
-        },
-      ];
-    }
-
-    return [
-      {
-        id: "pfz_mumbai_west_01",
-        name: "Mumbai High Thermal Gradient Alpha",
-        centerLat: 18.91,
-        centerLon: 72.64,
-        distanceKm: 16.2,
-        bearingDegrees: 265,
-        bearingCardinal: "W",
-        confidenceRatingPct: 86,
-        recommendationLabel: "Potentially Favourable Fishing Zone",
-        seaSurfaceTempC: parseFloat(sstMumbai.toFixed(1)),
-        chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
-        thermalGradientCPerKm: 0.09,
-        targetSpecies: ["Indian Mackerel", "Carangids (Trevally)", "Seer Fish"],
-        depthRangeMeters: "35 - 52m",
-        validUntil: new Date(Date.now() + 86400000).toISOString(),
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [72.58, 18.95],
-              [72.69, 18.98],
-              [72.72, 18.89],
-              [72.61, 18.85],
-              [72.58, 18.95],
-            ],
-          ],
-        },
-      },
-      {
-        id: "pfz_alibaug_deeps_02",
-        name: "Alibaug Continental Slope Zone Bravo",
-        centerLat: 18.69,
-        centerLon: 72.57,
-        distanceKm: 23.8,
-        bearingDegrees: 220,
-        bearingCardinal: "SW",
-        confidenceRatingPct: 79,
-        recommendationLabel: "Potentially Favourable Fishing Zone",
-        seaSurfaceTempC: parseFloat(sstAlibaug.toFixed(1)),
-        chlorophyllConcentrationMgM3: parseFloat(chl.toFixed(2)),
-        thermalGradientCPerKm: 0.08,
-        targetSpecies: ["Yellowfin Tuna", "Ribbonfish", "Anchovies"],
-        depthRangeMeters: "45 - 65m",
-        validUntil: new Date(Date.now() + 86400000).toISOString(),
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [72.5, 18.72],
-              [72.62, 18.76],
-              [72.65, 18.66],
-              [72.52, 18.62],
-              [72.5, 18.72],
-            ],
-          ],
-        },
-      },
-    ];
+    return this.standardizeResponse({
+      queryLocation: { lat: Number(location?.lat), lon: Number(location?.lon) },
+      sector,
+      zoneCount: zones.length,
+      nearestZone: zones[0] || null,
+      zones,
+      geojson: { ...geojson, features }
+    }, {
+      dataset: 'INCOIS Potential Fishing Zone Advisory WebGIS',
+      origin: SOURCE_URL,
+      webgis: WEBGIS_URL,
+      updateFrequency: 'Daily official advisory',
+      advisoryDate: dates[0] || null,
+      isLive: true,
+      isDemoData: false
+    });
   }
 }
 

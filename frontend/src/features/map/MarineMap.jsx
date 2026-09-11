@@ -33,7 +33,7 @@ const GIS_LAYERS = [
 
 const INCOIS_WMS = "https://www.incois.gov.in/geoserver";
 const OFFICIAL_LAYERS = [
-  { key: "eez", name: "INCOIS EEZ", url: `${INCOIS_WMS}/PFZ_EEZ/wms`, layers: "PFZ_Automation:indiaeez" },
+  { key: "eez", name: "INCOIS EEZ", url: `${INCOIS_WMS}/PFZ_EEZ/wms`, layers: "PFZ_EEZ:indiaeez" },
   { key: "sectors", name: "INCOIS Sectors", url: `${INCOIS_WMS}/PFZ_Sectors/wms`, layers: "PFZ_Sectors:sector_new" },
   { key: "landingCentres", name: "INCOIS Landing Centres", url: `${INCOIS_WMS}/PFZ_LandingCentres/wms`, layers: "PFZ_LandingCentres:LandingCenters_29Apr2024" },
   { key: "bathymetry", name: "INCOIS Bathymetry", url: `${INCOIS_WMS}/PFZ_Bathymetry/wms`, layers: "PFZ_Bathymetry:bathymetry" },

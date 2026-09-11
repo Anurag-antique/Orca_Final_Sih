@@ -21,10 +21,11 @@ export default function WeatherSafety({ point, sector, reading, onReading }) {
     if (!point) return () => { cancelled = true; };
     (async () => {
       try {
-        const [weather, ocean, context] = await Promise.all([
+        const context = await providerService.getMarineContext(point.lat, point.lon, sector);
+        if (context?.location?.isLand) throw new Error('This point is on land. Select a point over the sea.');
+        const [weather, ocean] = await Promise.all([
           providerService.getWeather(point.lat, point.lon, sector),
-          providerService.getOceanConditions(point.lat, point.lon),
-          providerService.getMarineContext(point.lat, point.lon, sector)
+          providerService.getOceanConditions(point.lat, point.lon)
         ]);
         if (!Number.isFinite(weather?.data?.windSpeedKmh) || !Number.isFinite(ocean?.data?.significantWaveHeightM)) throw new Error('Weather or wave measurements are unavailable.');
         if (cancelled) return;

@@ -23,6 +23,7 @@ class FallbackOceanProvider extends BaseProvider {
       );
       return result;
     } catch (primaryError) {
+      if (primaryError.code === "LAND_LOCATION") throw primaryError;
       console.warn(
         `[OceanProvider Fallback Triggered] ${primaryError.message}. Switching to Mock Oceanographic Model.`,
       );
