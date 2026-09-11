@@ -1,194 +1,102 @@
 /**
- * NOAA ERDDAP Data Service
- * Fetches live ocean data from NOAA's public ERDDAP server.
- * No API key required.
+ * Dual-source ocean data service
+ * SST: Open-Meteo Marine (live, no key)
+ * Chlorophyll: NOAA ERDDAP (bounding box average)
  */
 
 const config = require("../config");
 
-const DATASETS = {
-  sst: {
-    id: "jplMURSST41",
-    variable: "analysed_sst",
-    unit: "K",
-    validRange: [270, 310],
-    label: "NOAA MUR SST (Live)",
-  },
-  chlorophyll: {
-    id: "erdMH1chlamday",
-    variable: "chlorophyll",
-    unit: "mg/m³",
-    validRange: [0, 30],
-    label: "NOAA/NASA MODIS-Aqua Chlorophyll (Live)",
-  },
-};
-
-const BASE_URL = "https://coastwatch.pfeg.noaa.gov/erddap";
+const OPEN_METEO_URL = "https://marine-api.open-meteo.com/v1/marine";
+const NOAA_BASE = "https://coastwatch.pfeg.noaa.gov/erddap";
+const NOAA_CHL_DATASET = "erdMH1chlamday";
+const NOAA_CHL_VAR = "chlorophyll";
 const TIMEOUT_MS = (config.incois && config.incois.timeoutMs) || 6000;
 
-async function fetchErddapPoint(datasetConfig, lat, lon, dateStr = null) {
-  // Create a small bounding box around the point (approx 5km radius)
-  const delta = 0.05; // 0.05 degrees is ~5.5km at the equator
-  const latMin = lat - delta;
-  const latMax = lat + delta;
-  const lonMin = lon - delta;
-  const lonMax = lon + delta;
-
-  const timeSelector = dateStr ? `(${dateStr})` : "(last)";
-
-  // Query the bounding box. The (latMin):(latMax) and (lonMin):(lonMax) syntax tells ERDDAP to return all points in that range.
+async function fetchLiveSST(lat, lon) {
   const url =
-    `${BASE_URL}/griddap/${datasetConfig.id}.json` +
-    `?${datasetConfig.variable}[${timeSelector}][(${latMin}):1:(${latMax})][(${lonMin}):1:(${lonMax})]`;
+    `${OPEN_METEO_URL}?latitude=${lat}&longitude=${lon}` +
+    `&current=sea_surface_temperature`;
 
   const queryTimestamp = new Date().toISOString();
-  console.log(`[NOAA-Fetch] GET ${url}`);
+  console.log(`[SST-Fetch] GET ${url}`);
 
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Open-Meteo SST HTTP ${res.status}`);
 
-  if (!res.ok) {
-    throw new Error(
-      `NOAA ERDDAP ${datasetConfig.id} returned HTTP ${res.status}`,
-    );
+  const json = await res.json();
+  const sst = json?.current?.sea_surface_temperature;
+  const dataTimestamp = json?.current?.time || queryTimestamp;
+
+  if (typeof sst !== "number" || sst < 10 || sst > 35) {
+    throw new Error(`Open-Meteo SST invalid: ${sst}`);
   }
+
+  return {
+    source: "Open-Meteo Marine (Live SST)",
+    datasetId: "open-meteo-marine-sst",
+    queryTimestamp,
+    dataTimestamp,
+    value: sst,
+    unit: "°C",
+  };
+}
+
+async function fetchLiveChlorophyll(lat, lon) {
+  const delta = 0.15;
+  const latMin = (lat - delta).toFixed(3);
+  const latMax = (lat + delta).toFixed(3);
+  const lonMin = (lon - delta).toFixed(3);
+  const lonMax = (lon + delta).toFixed(3);
+
+  const url =
+    `${NOAA_BASE}/griddap/${NOAA_CHL_DATASET}.json` +
+    `?${NOAA_CHL_VAR}%5B(last)%5D` +
+    `%5B(${latMin}):1:(${latMax})%5D` +
+    `%5B(${lonMin}):1:(${lonMax})%5D`;
+
+  const queryTimestamp = new Date().toISOString();
+  console.log(`[CHL-Fetch] GET ${url}`);
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`NOAA ERDDAP CHL HTTP ${res.status}`);
 
   const json = await res.json();
   const table = json?.table;
+  if (!table?.rows?.length) throw new Error("NOAA ERDDAP CHL: empty");
 
-  if (!table || !Array.isArray(table.rows) || table.rows.length === 0) {
-    throw new Error(`NOAA ERDDAP ${datasetConfig.id}: empty response`);
-  }
-
-  const columnNames = table.columnNames;
-  const varIndex = columnNames.indexOf(datasetConfig.variable);
-  if (varIndex === -1) {
-    throw new Error(
-      `NOAA ERDDAP: variable '${datasetConfig.variable}' not found.`,
-    );
-  }
-
-  const timeIndex = columnNames.findIndex((c) =>
+  const varIndex = table.columnNames.indexOf(NOAA_CHL_VAR);
+  const timeIndex = table.columnNames.findIndex((c) =>
     c.toLowerCase().includes("time"),
   );
 
-  // Collect all valid, non-null values
-  const validValues = [];
+  const values = [];
   let dataTimestamp = queryTimestamp;
 
   for (const row of table.rows) {
-    const rawValue = parseFloat(row[varIndex]);
-    if (Number.isFinite(rawValue)) {
-      validValues.push(rawValue);
-      if (timeIndex !== -1 && !dataTimestamp) {
-        dataTimestamp = row[timeIndex];
+    const v = parseFloat(row[varIndex]);
+    if (Number.isFinite(v) && v > 0 && v < 30) {
+      values.push(v);
+      if (timeIndex !== -1 && dataTimestamp === queryTimestamp) {
+        dataTimestamp = row[timeIndex] || dataTimestamp;
       }
     }
   }
 
-  if (validValues.length === 0) {
-    throw new Error(
-      `NOAA ERDDAP: no valid data points found in the bounding box.`,
-    );
+  if (values.length === 0) {
+    throw new Error("NOAA ERDDAP CHL: no valid ocean pixels in box");
   }
 
-  // Calculate the average of the valid points
-  const averageValue =
-    validValues.reduce((a, b) => a + b, 0) / validValues.length;
-
-  let finalValue = averageValue;
-  if (datasetConfig.unit === "K") {
-    finalValue = averageValue - 273.15;
-  }
-
-  // Validate the final average value against the expected range
-  const [min, max] = datasetConfig.validRange;
-  if (!Number.isFinite(finalValue) || finalValue < min || finalValue > max) {
-    throw new Error(
-      `NOAA ERDDAP: averaged value ${finalValue} out of range [${min}, ${max}]`,
-    );
-  }
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
 
   return {
-    source: datasetConfig.label,
-    datasetId: datasetConfig.id,
+    source: "NOAA/NASA MODIS-Aqua Chlorophyll",
+    datasetId: NOAA_CHL_DATASET,
     queryTimestamp,
     dataTimestamp,
-    value: finalValue,
-    unit: datasetConfig.unit === "K" ? "°C" : datasetConfig.unit,
+    value: parseFloat(avg.toFixed(2)),
+    unit: "mg/m³",
+    pixelsUsed: values.length,
   };
-}
-// async function fetchErddapPoint(datasetConfig, lat, lon) {
-//   // Tomcat 10+ rejects raw brackets — must be percent-encoded
-//   const LB = "%5B";
-//   const RB = "%5D";
-
-//   const url =
-//     `${BASE_URL}/griddap/${datasetConfig.id}.json` +
-//     `?${datasetConfig.variable}${LB}(last)${RB}${LB}(${lat})${RB}${LB}(${lon})${RB}`;
-
-//   const queryTimestamp = new Date().toISOString();
-
-//   console.log(`[NOAA-Fetch] GET ${url}`);
-
-//   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-
-//   if (!res.ok) {
-//     throw new Error(
-//       `NOAA ERDDAP ${datasetConfig.id} returned HTTP ${res.status}`,
-//     );
-//   }
-
-//   const json = await res.json();
-//   const table = json?.table;
-
-//   if (!table || !Array.isArray(table.rows) || table.rows.length === 0) {
-//     throw new Error(`NOAA ERDDAP ${datasetConfig.id}: empty response`);
-//   }
-
-//   const columnNames = table.columnNames;
-//   const row = table.rows[0];
-
-//   const varIndex = columnNames.indexOf(datasetConfig.variable);
-//   if (varIndex === -1) {
-//     throw new Error(
-//       `NOAA ERDDAP ${datasetConfig.id}: variable '${datasetConfig.variable}' not found. ` +
-//         `Available: ${columnNames.join(", ")}`,
-//     );
-//   }
-
-//   let value = parseFloat(row[varIndex]);
-//   if (datasetConfig.unit === "K") value = value - 273.15;
-
-//   const timeIndex = columnNames.findIndex((c) =>
-//     c.toLowerCase().includes("time"),
-//   );
-//   const dataTimestamp =
-//     timeIndex !== -1 && row[timeIndex] ? row[timeIndex] : queryTimestamp;
-
-//   const [min, max] = datasetConfig.validRange;
-//   if (!Number.isFinite(value) || value < min || value > max) {
-//     console.warn(
-//       `NOAA ERDDAP ${datasetConfig.id}: value ${value} out of range [${min}, ${max}]`,
-//     );
-//     return null;
-//   }
-
-//   return {
-//     source: datasetConfig.label,
-//     datasetId: datasetConfig.id,
-//     queryTimestamp,
-//     dataTimestamp,
-//     value,
-//     unit: datasetConfig.unit === "K" ? "°C" : datasetConfig.unit,
-//   };
-// }
-
-async function fetchLiveSST(lat, lon) {
-  return fetchErddapPoint(DATASETS.sst, lat, lon);
-}
-
-async function fetchLiveChlorophyll(lat, lon) {
-  return fetchErddapPoint(DATASETS.chlorophyll, lat, lon);
 }
 
 async function fetchAllParameters(lat, lon) {
@@ -197,15 +105,20 @@ async function fetchAllParameters(lat, lon) {
     fetchLiveChlorophyll(lat, lon),
   ]);
 
+  if (results[0].status === "rejected") {
+    console.error("[SST-Fetch] FAILED:", results[0].reason?.message);
+  }
+  if (results[1].status === "rejected") {
+    console.error("[CHL-Fetch] FAILED:", results[1].reason?.message);
+  }
+
   const sst = results[0].status === "fulfilled" ? results[0].value : null;
   const chlorophyll =
     results[1].status === "fulfilled" ? results[1].value : null;
 
   if (!sst && !chlorophyll) {
     throw new Error(
-      `NOAA ERDDAP: both fetches failed. ` +
-        `SST: ${results[0].reason?.message || "unknown"}. ` +
-        `Chl: ${results[1].reason?.message || "unknown"}.`,
+      `Both failed. SST: ${results[0].reason?.message}. CHL: ${results[1].reason?.message}`,
     );
   }
 
