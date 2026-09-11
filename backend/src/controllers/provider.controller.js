@@ -4,6 +4,7 @@ const pfzService = require('../services/pfz.service');
 const advisoryService = require('../services/advisory.service');
 const geospatialService = require('../services/geospatial.service');
 const sourceService = require('../services/source.service');
+const marineContextService = require('../services/marineContext.service');
 
 const parseLocation = (req) => {
   return {
@@ -75,11 +76,21 @@ const getDataSources = (req, res, next) => {
   }
 };
 
+const getMarineContext = async (req, res, next) => {
+  try {
+    const location = parseLocation(req);
+    return res.status(200).json(await marineContextService.getContext(location));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getWeather,
   getOceanConditions,
   getPFZs,
   getAdvisories,
   getGeospatialZones,
-  getDataSources
+  getDataSources,
+  getMarineContext
 };

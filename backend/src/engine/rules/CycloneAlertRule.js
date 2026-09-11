@@ -2,7 +2,7 @@ const thresholds = require('../thresholds');
 
 class CycloneAlertRule {
   static evaluate(cycloneAlert, advisoryList = []) {
-    const isCycloneActive = cycloneAlert && (cycloneAlert.active || cycloneAlert.category?.includes('CYCLONE') || cycloneAlert.category?.includes('DEPRESSION'));
+    const isCycloneActive = cycloneAlert && (cycloneAlert.active ?? (cycloneAlert.category !== 'NO_CYCLONE_THREAT' && /CYCLONE|DEPRESSION/.test(cycloneAlert.category || '')));
     const hasHighWaveAlert = advisoryList.some(a => a.severity === 'WARNING' || a.type?.includes('HIGH_WAVE'));
 
     let subScore = 0;

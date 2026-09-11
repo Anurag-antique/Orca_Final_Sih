@@ -8,5 +8,6 @@ router.get('/pfz', providerController.getPFZs);
 router.get('/advisories', providerController.getAdvisories);
 router.get('/geospatial/zones', providerController.getGeospatialZones);
 router.get('/sources', providerController.getDataSources);
+router.get('/marine/context', providerController.getMarineContext);
 
 module.exports = router;

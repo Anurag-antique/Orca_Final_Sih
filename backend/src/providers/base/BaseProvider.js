@@ -20,10 +20,11 @@ class BaseProvider {
       source: {
         dataset: sourceMetadata.dataset || 'Proto-Synthetic Dataset',
         origin: sourceMetadata.origin || 'ORCA Prototype Provider Layer',
-        accuracyEstimate: sourceMetadata.accuracyEstimate || 'Prototype Standard',
+        accuracyEstimate: sourceMetadata.accuracyEstimate || (this.isMock ? 'Prototype Standard' : 'Provider reported'),
         updateFrequency: sourceMetadata.updateFrequency || 'Hourly',
         isDemoData: this.isMock,
-        disclaimer: 'Data generated for SIH 2026 decision support prototype demonstration.'
+        disclaimer: sourceMetadata.disclaimer || (this.isMock ? 'Data generated for SIH 2026 decision support prototype demonstration.' : 'Provider data; verify the source timestamp before operational use.'),
+        ...sourceMetadata
       },
       timestamp: new Date().toISOString(),
       data

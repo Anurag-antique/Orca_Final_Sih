@@ -13,8 +13,8 @@ export const providerService = {
     return await api.get(`/ocean?${params.toString()}`);
   },
 
-  async getPFZs(lat = 18.9220, lon = 72.8347, date) {
-    const params = new URLSearchParams({ lat, lon });
+  async getPFZs(lat = 18.9220, lon = 72.8347, sector = 'Mumbai Coast', date) {
+    const params = new URLSearchParams({ lat, lon, sector });
     if (date) params.append('date', date);
     return await api.get(`/pfz?${params.toString()}`);
   },
@@ -29,5 +29,10 @@ export const providerService = {
 
   async getDataSources() {
     return await api.get('/sources');
+  },
+
+  async getMarineContext(lat, lon, sector = 'Mumbai Coast') {
+    const params = new URLSearchParams({ lat, lon, sector });
+    return await api.get(`/marine/context?${params.toString()}`);
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -16,31 +16,41 @@ import {
 import { geofenceService } from '../../services/geofenceService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
-export default function GeofenceMonitor({ onLocationChange }) {
+export default function GeofenceMonitor({ onLocationChange, onSimulation }) {
+  const request = useRef(0);
   const [geofenceState, setGeofenceState] = useState(null);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeScenario, setActiveScenario] = useState('CLEAR');
 
-  const runSimulation = async (scenario) => {
+  const runSimulation = async (scenario, moveMap = true) => {
+    const id = ++request.current;
     setActiveScenario(scenario);
     setLoading(true);
+    setError('');
     try {
       const res = await geofenceService.simulateScenario(scenario);
+      if (id !== request.current) return;
       if (res?.data) {
         setGeofenceState(res.data);
+        if (moveMap) onSimulation?.(res.data);
         if (onLocationChange && res.data.vesselPosition) {
           onLocationChange(res.data.vesselPosition);
         }
       }
     } catch (err) {
-      console.error('Error in geofence simulation:', err);
+      if (id !== request.current) return;
+      setError(err.message || 'Simulation failed. Try again.');
+      setGeofenceState(null);
+      if (moveMap) onSimulation?.(null);
     } finally {
-      setLoading(false);
+      if (id === request.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    runSimulation('CLEAR');
+    runSimulation('CLEAR', false);
+    return () => { request.current++; };
   }, []);
 
   const statusStyles = {
@@ -75,6 +85,8 @@ export default function GeofenceMonitor({ onLocationChange }) {
 
   return (
     <div className={`p-5 rounded-2xl bg-slate-900/90 border ${currentStyle.border} space-y-4 shadow-xl text-xs`}>
+      <p className="text-slate-400">Static demo boundaries · simulated vessel</p>
+      {error && <p role="alert" className="text-rose-300">{error}</p>}
       {/* Status Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div className="flex items-center gap-3">
@@ -83,7 +95,7 @@ export default function GeofenceMonitor({ onLocationChange }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-100 text-sm">{currentStyle.title}</span>
+              <span className="font-bold text-slate-100 text-sm">{!geofenceState ? (loading ? 'Checking position…' : 'STATUS UNAVAILABLE') : currentStyle.title}</span>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold ${currentStyle.badge}`}>
                 {geofenceState?.status?.replace(/_/g, ' ')}
               </span>
@@ -102,8 +114,9 @@ export default function GeofenceMonitor({ onLocationChange }) {
         <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">
           SIH Live Simulation Trigger (1-Click Demonstration):
         </span>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
+            disabled={loading}
             onClick={() => runSimulation('MALVAN_MPA_BREACH')}
             className={`p-2.5 rounded-xl border text-left transition ${
               activeScenario === 'MALVAN_MPA_BREACH'
@@ -116,6 +129,7 @@ export default function GeofenceMonitor({ onLocationChange }) {
           </button>
 
           <button
+            disabled={loading}
             onClick={() => runSimulation('NAVAL_FIRING_WARNING')}
             className={`p-2.5 rounded-xl border text-left transition ${
               activeScenario === 'NAVAL_FIRING_WARNING'
@@ -128,6 +142,7 @@ export default function GeofenceMonitor({ onLocationChange }) {
           </button>
 
           <button
+            disabled={loading}
             onClick={() => runSimulation('SIR_CREEK_IMBL_WARNING')}
             className={`p-2.5 rounded-xl border text-left transition ${
               activeScenario === 'SIR_CREEK_IMBL_WARNING'
@@ -140,6 +155,7 @@ export default function GeofenceMonitor({ onLocationChange }) {
           </button>
 
           <button
+            disabled={loading}
             onClick={() => runSimulation('CLEAR')}
             className={`p-2.5 rounded-xl border text-left transition ${
               activeScenario === 'CLEAR'
@@ -164,6 +180,7 @@ export default function GeofenceMonitor({ onLocationChange }) {
             <div key={idx} className="p-2.5 rounded-lg bg-slate-950 border border-red-900/60 space-y-1">
               <div className="font-bold text-slate-100">{z.name} ({z.state})</div>
               <p className="text-[11px] text-slate-300">{z.description}</p>
+              <p>Distance: {z.distanceKm} km (inside zone)</p>
               <div className="text-[10px] font-mono text-rose-400 flex items-center gap-1 mt-1">
                 <Scale className="w-3.5 h-3.5" />
                 <span>Statutory Penalty: {z.penalty}</span>

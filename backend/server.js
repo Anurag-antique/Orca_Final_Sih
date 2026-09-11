@@ -21,19 +21,18 @@ async function start() {
 
     console.log("[ORCA-BACKEND] Seeding demo user...");
     await seedDemoUser();
-
-    app.listen(PORT, () => {
-      console.log(
-        `[ORCA-BACKEND] Server listening on port ${PORT} in ${config.env} mode`,
-      );
-      console.log(
-        `[ORCA-BACKEND] Health endpoint: http://localhost:${PORT}/api/health`,
-      );
-    });
   } catch (err) {
-    console.error("[ORCA-BACKEND] ❌ Startup failed:", err.message);
-    process.exit(1);
+    console.warn("[ORCA-BACKEND] ⚠️ Database migration skipped:", err.message);
   }
+
+  app.listen(PORT, () => {
+    console.log(
+      `[ORCA-BACKEND] Server listening on port ${PORT} in ${config.env} mode`,
+    );
+    console.log(
+      `[ORCA-BACKEND] Health endpoint: http://localhost:${PORT}/api/health`,
+    );
+  });
 }
 
 start();
