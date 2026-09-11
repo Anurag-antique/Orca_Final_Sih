@@ -6,8 +6,4 @@ coverage
 *.log
 .DS_Store
 ./backend/.env
-.env.local
-.env.*.local
-__MACOSX/
-*.img
 frontend/.env

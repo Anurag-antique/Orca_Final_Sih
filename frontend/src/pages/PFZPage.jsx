@@ -17,6 +17,7 @@ import {
   Wind
 } from 'lucide-react';
 import { providerService } from '../services/providerService';
+import { mapService } from '../services/mapService';
 import MarineMap from '../features/map/MarineMap';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -32,20 +33,23 @@ export default function PFZPage() {
   const [pfzData, setPfzData] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [oceanData, setOceanData] = useState(null);
+  const [mapLayers, setMapLayers] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchPFZTelemetry = async () => {
     setLoading(true);
     try {
-      const [pfzRes, wRes, oRes] = await Promise.all([
+      const [pfzRes, wRes, oRes, mapRes] = await Promise.all([
         providerService.getPFZs(selectedSector.lat, selectedSector.lon),
         providerService.getWeather(selectedSector.lat, selectedSector.lon, selectedSector.name),
-        providerService.getOceanConditions(selectedSector.lat, selectedSector.lon)
+        providerService.getOceanConditions(selectedSector.lat, selectedSector.lon),
+        mapService.getLayers(selectedSector.name)
       ]);
 
       setPfzData(pfzRes);
       setWeatherData(wRes);
       setOceanData(oRes);
+      setMapLayers(mapRes?.data);
     } catch (err) {
       console.error('Error fetching PFZ intelligence data:', err);
     } finally {
@@ -250,11 +254,8 @@ export default function PFZPage() {
           </div>
 
           <MarineMap
-            layersData={pfzData?.data?.geojson ? { pfz: pfzData.data.geojson } : null}
+            layersData={mapLayers}
             selectedSector={selectedSector.name}
-              showDemoLayers={false}
-              visibleLayers={['pfz']}
-              showOfficialLayers
             height="480px"
             compact={true}
           />
