@@ -10,7 +10,8 @@
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
     "build:frontend": "npm --prefix frontend run build",
     "start:backend": "npm --prefix backend start",
-    "test": "node backend/test_master.js"
+    "test": "node backend/test_master.js",
+    "dev:marine": "concurrently \"node backend/marine-dev.js\" \"MARINE_API_TARGET=http://127.0.0.1:5001 npm --prefix frontend run dev -- --host 127.0.0.1\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

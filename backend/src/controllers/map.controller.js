@@ -1,3 +1,4 @@
+const GeofenceService = require('../services/geofence.service');
 // GeoJSON datasets for Indian Coastal & Offshore waters (Western & Eastern EEZ)
 const getMapLayers = (req, res) => {
   const sector = req.query.sector || "all";
@@ -418,6 +419,19 @@ const getMapLayers = (req, res) => {
       ],
     },
   };
+
+  // Reuse the exact demonstration boundaries evaluated by the simulator.
+  const zones = GeofenceService.getZonesDatabase();
+  for (const [key, source] of Object.entries({ protected: 'marineProtectedAreas', restricted: 'restrictedNavalZones', hazards: 'submergedHazards', imbl: 'internationalBoundaries' })) {
+    const features = zones[source].map(({ coordinates, lineCoordinates, ...properties }) => ({
+      type: 'Feature', id: properties.id,
+      properties: { ...properties, isDemoData: true },
+      geometry: lineCoordinates
+        ? { type: 'LineString', coordinates: lineCoordinates.map(([lat, lon]) => [lon, lat]) }
+        : { type: 'Polygon', coordinates: [coordinates.map(([lat, lon]) => [lon, lat])] }
+    }));
+    layers[key] = { type: 'FeatureCollection', features: [...(layers[key]?.features || []), ...features] };
+  }
 
   return res.status(200).json({
     success: true,
