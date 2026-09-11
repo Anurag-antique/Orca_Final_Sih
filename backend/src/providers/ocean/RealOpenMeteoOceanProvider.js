@@ -7,8 +7,8 @@ class RealOpenMeteoOceanProvider extends BaseProvider {
   }
 
   async getOceanConditions(location, datetime = new Date()) {
-    const lat = parseFloat(location?.lat) || 18.922;
-    const lon = parseFloat(location?.lon) || 72.8347;
+    const lat = parseFloat(location?.lat ?? 18.922);
+    const lon = parseFloat(location?.lon ?? 72.8347);
 
     const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction,wave_period,wind_wave_height,ocean_current_velocity,ocean_current_direction,sea_surface_temperature`;
 
@@ -19,6 +19,7 @@ class RealOpenMeteoOceanProvider extends BaseProvider {
 
     const data = await res.json();
     const cur = data.current || {};
+    if (!Number.isFinite(cur.wave_height)) throw new Error("Open-Meteo returned no wave_height measurement");
 
     const getCardinalDirection = (deg) => {
       const directions = [
