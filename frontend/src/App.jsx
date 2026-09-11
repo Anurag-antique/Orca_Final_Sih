@@ -18,6 +18,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { OfflineProvider } from './context/OfflineContext';
 import { checkHealth } from './services/healthService';
 
 export default function App() {
@@ -65,36 +66,38 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <LanguageProvider>
-          <BrowserRouter>
-            <MainLayout apiStatus={apiStatus}>
-              <Routes>
-                <Route path="/" element={<HomePage apiStatus={apiStatus} />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/map" element={<MapPage />} />
-                <Route path="/routes" element={<RoutesPage />} />
-                <Route path="/alerts" element={<AlertsPage />} />
-                <Route path="/pfz" element={<PFZPage />} />
-                <Route path="/sources" element={<DataSourcesPage />} />
-                <Route path="/history" element={<HistoryPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/dashboard" element={<DashboardPage apiStatus={apiStatus} />} />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </MainLayout>
-          </BrowserRouter>
-        </LanguageProvider>
-      </AuthProvider>
+      <OfflineProvider>
+        <AuthProvider>
+          <LanguageProvider>
+            <BrowserRouter>
+              <MainLayout apiStatus={apiStatus}>
+                <Routes>
+                  <Route path="/" element={<HomePage apiStatus={apiStatus} />} />
+                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/map" element={<MapPage />} />
+                  <Route path="/routes" element={<RoutesPage />} />
+                  <Route path="/alerts" element={<AlertsPage />} />
+                  <Route path="/pfz" element={<PFZPage />} />
+                  <Route path="/sources" element={<DataSourcesPage />} />
+                  <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/dashboard" element={<DashboardPage apiStatus={apiStatus} />} />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </MainLayout>
+            </BrowserRouter>
+          </LanguageProvider>
+        </AuthProvider>
+      </OfflineProvider>
     </ErrorBoundary>
   );
 }
