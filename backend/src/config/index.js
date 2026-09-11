@@ -24,4 +24,6 @@ module.exports = {
     timeoutMs: parseInt(process.env.INCOIS_TIMEOUT_MS, 10) || 4000,
     fallbackEnabled: process.env.INCOIS_FALLBACK_ENABLED !== "false",
   },
+  groqApiKey: process.env.GROQ_API_KEY,
+  groqModel: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
 };

@@ -1,4 +1,5 @@
 const { orchestrator } = require('../agents');
+const MemoryService = require('../services/memory.service');
 
 // In-memory conversation session store
 const conversationSessions = new Map();
@@ -22,7 +23,8 @@ const handleChatMessage = async (req, res, next) => {
       message,
       location,
       vesselProfile,
-      conversationId: convId
+      conversationId: convId,
+      language
     });
 
     const userMsgObj = {
@@ -76,11 +78,14 @@ const getChatHistory = (req, res, next) => {
   }
 };
 
-const resetChatSession = (req, res, next) => {
+const resetChatSession = async (req, res, next) => {
   try {
     const { conversationId } = req.body;
     if (conversationId && conversationSessions.has(conversationId)) {
       conversationSessions.delete(conversationId);
+    }
+    if (conversationId) {
+      await MemoryService.clearConversation(conversationId);
     }
     return res.status(200).json({
       success: true,
