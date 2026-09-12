@@ -14,15 +14,19 @@ import {
 import MarineMap from '../features/map/MarineMap';
 import RoutePlanner from '../features/routes/RoutePlanner';
 import { mapService } from '../services/mapService';
+import StaleBadge from '../components/StaleBadge';
+import ApiError from '../components/ApiError';
 
 export default function RoutesPage() {
   const [selectedSector, setSelectedSector] = useState('Mumbai Coast');
   const [layersData, setLayersData] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchLayers = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await mapService.getLayers(selectedSector);
       if (res?.data) {
@@ -30,6 +34,7 @@ export default function RoutesPage() {
       }
     } catch (err) {
       console.error('Error fetching map layers for route planner:', err);
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -37,6 +42,7 @@ export default function RoutesPage() {
 
   useEffect(() => {
     fetchLayers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSector]);
 
   return (
@@ -44,13 +50,16 @@ export default function RoutesPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">
               Lower-Risk Vessel Route Planner
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-medium">
               Phase 11 Active
             </span>
+            <StaleBadge
+              url={`/map/layers?sector=${encodeURIComponent(selectedSector)}`}
+            />
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Intelligent waypoint trajectory planning avoiding naval exercise perimeters, high swell shoals, and MPAs
@@ -84,9 +93,10 @@ export default function RoutesPage() {
         </div>
       </div>
 
+      {error && <ApiError error={error} onRetry={fetchLayers} />}
+
       {/* Main Grid: Visual Leaflet Marine Map (7 Cols) + Route Planner Drawer (5 Cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left 7 Cols: GIS Map with Visual Route Overlays */}
         <div className="lg:col-span-7 space-y-4">
           <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-950">
             <MarineMap
@@ -99,7 +109,6 @@ export default function RoutesPage() {
             />
           </div>
 
-          {/* Route Legend Indicator */}
           <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
             <div className="flex items-center gap-4 flex-wrap">
               <span className="flex items-center gap-1.5 font-medium">
@@ -118,7 +127,6 @@ export default function RoutesPage() {
           </div>
         </div>
 
-        {/* Right 5 Cols: Route Planner Configuration & Directives */}
         <div className="lg:col-span-5 space-y-4">
           <RoutePlanner
             onRouteGenerated={setCurrentPlan}

@@ -2,6 +2,7 @@ import React from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import OfflineBanner from '../components/OfflineBanner';
+import BackOnlineToast from '../components/BackOnlineToast';
 
 export default function MainLayout({ children, apiStatus }) {
   return (
@@ -16,6 +17,7 @@ export default function MainLayout({ children, apiStatus }) {
           </div>
         </main>
       </div>
+      <BackOnlineToast />
     </div>
   );
 }

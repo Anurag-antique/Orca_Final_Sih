@@ -21,14 +21,19 @@ api.interceptors.response.use(
   async (response) => {
     // SUCCESS PATH — unchanged shape. Just opportunistically cache
     // whitelisted GETs so we have data if the network later drops.
+    //
+    // NOTE: we intentionally do NOT skip caching when the Authorization
+    // header is present. AuthContext sets it globally, so this would
+    // prevent caching for every logged-in user. Safety is enforced
+    // elsewhere:
+    //   1. isCacheable() refuses /auth/* and /health unconditionally.
+    //   2. The service worker's cacheWillUpdate guard refuses to store
+    //      authenticated responses in Cache Storage.
+    //   3. IndexedDB only stores the endpoints in the CACHEABLE allowlist.
     try {
       const cfg = response.config || {};
       const method = (cfg.method || 'get').toLowerCase();
-      if (
-        method === 'get' &&
-        isCacheable(cfg.url) &&
-        !cfg.headers?.Authorization
-      ) {
+      if (method === 'get' && isCacheable(cfg.url)) {
         await putCached(cfg, response.data);
       }
     } catch {
@@ -79,31 +84,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-
-
-
-// import axios from 'axios';
-
-// const api = axios.create({
-//   baseURL: import.meta.env.VITE_API_URL || '/api',
-//   timeout: 10000,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
-
-
-// api.interceptors.response.use(
-//   (response) => response.data,
-//   (error) => {
-//     const customError = {
-//       message: error.response?.data?.message || error.message || 'An unexpected error occurred',
-//       status: error.response?.status || 500,
-//       data: error.response?.data || null,
-//     };
-//     return Promise.reject(customError);
-//   }
-// );
-
-// export default api;
