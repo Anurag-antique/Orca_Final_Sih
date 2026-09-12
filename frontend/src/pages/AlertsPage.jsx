@@ -6,38 +6,10 @@ import {
   AlertTriangle,
   Info,
   RefreshCw,
-  Loader2,
-} from "lucide-react";
-import { useNotifications } from "../context/NotificationContext";
-
-const SEVERITY_META = {
-  INFO: {
-    Icon: Info,
-    color: "text-sky-300",
-    bg: "bg-sky-950/50 border-sky-800",
-    label: "Info",
-  },
-  WARNING: {
-    Icon: AlertTriangle,
-    color: "text-amber-300",
-    bg: "bg-amber-950/50 border-amber-800",
-    label: "Warning",
-  },
-  CRITICAL: {
-    Icon: ShieldAlert,
-    color: "text-rose-300",
-    bg: "bg-rose-950/50 border-rose-800",
-    label: "Critical",
-  },
-};
-
-const formatTime = (iso) => {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return "";
-  }
-};
+  Info
+} from 'lucide-react';
+import AlertFeed from '../features/alerts/AlertFeed';
+import StaleBadge from '../components/StaleBadge';
 
 export default function AlertsPage() {
   const {
@@ -54,7 +26,7 @@ export default function AlertsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">
               Safety Alerts & Emergency Operations Center
             </h1>
@@ -67,6 +39,7 @@ export default function AlertsPage() {
             >
               {streamOk ? "Live stream active" : "Live stream reconnecting"}
             </span>
+            <StaleBadge url="/alerts" params={{ sector: 'all', status: 'ACTIVE' }} />
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Real-time alerts generated from live weather, ocean, geofence, and

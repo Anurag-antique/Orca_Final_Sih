@@ -7,20 +7,26 @@ import {
   ArrowUpRight,
   Maximize2,
   RefreshCw,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { dashboardService } from "../services/dashboardService";
-import { mapService } from "../services/mapService";
-import { useAuth } from "../hooks/useAuth";
-import MarineMap from "../features/map/MarineMap";
-import RiskAuditViewer from "../features/risk/RiskAuditViewer";
+  Radio,
+  Sparkles,
+  Sliders,
+  X
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { dashboardService } from '../services/dashboardService';
+import { mapService } from '../services/mapService';
+import { useAuth } from '../hooks/useAuth';
+import MarineMap from '../features/map/MarineMap';
+import RiskAuditViewer from '../features/risk/RiskAuditViewer';
+import StaleBadge from '../components/StaleBadge';
+import ApiError from '../components/ApiError';
 
 const NA = "—";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [selectedSector, setSelectedSector] = useState(
-    user?.preferredSector?.includes("Kochi") ? "Kochi Harbor" : "Mumbai Coast",
+    user?.preferredSector?.includes('Kochi') ? 'Kochi Harbor' : 'Mumbai Coast'
   );
   const [telemetry, setTelemetry] = useState(null);
   const [mapLayers, setMapLayers] = useState(null);
@@ -39,7 +45,8 @@ export default function DashboardPage() {
       if (dashRes?.data) setTelemetry(dashRes.data);
       if (mapRes?.data) setMapLayers(mapRes.data);
     } catch (err) {
-      setError(err?.message || "Dashboard telemetry unavailable.");
+      console.error('Error fetching dashboard data:', err);
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -59,9 +66,15 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Marine Operations Dashboard
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Marine Operations Dashboard</h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
+              Phase 8 Risk Engine
+            </span>
+            <StaleBadge
+              url={`/dashboard?sector=${encodeURIComponent(selectedSector)}`}
+            />
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Live weather, ocean, and fishing-zone intelligence for your selected
             sector.
@@ -116,15 +129,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-amber-900 bg-amber-950/40 px-4 py-3 text-xs text-amber-200">
-          {error}
-        </div>
-      )}
+      {error && <ApiError error={error} onRetry={fetchDashboardData} />}
 
+      {/* Main Telemetry 4-Card Grid with Deterministic Engine Badges */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Risk */}
-        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+        {/* 1. Risk Assessment Card */}
+        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Risk Assessment
@@ -344,12 +354,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-ocean-400" />
-              <h2 className="font-bold text-slate-100 text-sm">
-                Interactive Marine Map
-              </h2>
+              <h2 className="font-bold text-slate-100 text-sm">Interactive Marine GIS Map</h2>
+              <StaleBadge
+                url={`/map/layers?sector=${encodeURIComponent(selectedSector)}`}
+              />
             </div>
             <Link
               to="/map"
@@ -415,6 +426,23 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Risk Modal */}
+      {showRiskModal && telemetry?.riskAssessment && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 relative">
+            <button
+              onClick={() => setShowRiskModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-lg font-bold text-white mb-3">Risk Assessment Rules</h3>
+            <RiskAuditViewer riskAssessment={telemetry.riskAssessment} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

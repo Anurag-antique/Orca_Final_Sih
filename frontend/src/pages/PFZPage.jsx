@@ -4,12 +4,12 @@ import {
   MapPin,
   ShieldCheck,
   RefreshCw,
-  Layers,
-  Info,
-} from "lucide-react";
-import { providerService } from "../services/providerService";
-import MarineMap from "../features/map/MarineMap";
-import LoadingSpinner from "../components/LoadingSpinner";
+  Wind
+} from 'lucide-react';
+import { providerService } from '../services/providerService';
+import MarineMap from '../features/map/MarineMap';
+import LoadingSpinner from '../components/LoadingSpinner';
+import StaleBadge from '../components/StaleBadge';
 
 const SECTORS = [
   { name: "Mumbai Coast", lat: 18.922, lon: 72.8347 },
@@ -91,9 +91,7 @@ export default function PFZPage() {
     };
 
     fetchPFZTelemetry();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSector]);
 
   const zones = pfzData?.data?.zones || [];
@@ -103,9 +101,17 @@ export default function PFZPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            PFZ Intelligence & Pelagic Zones
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              PFZ Intelligence & Pelagic Zones
+            </h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
+              Phase 5 Satellite Integration
+            </span>
+            <StaleBadge
+              url={`/pfz?lat=${selectedSector.lat}&lon=${selectedSector.lon}`}
+            />
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Satellite-derived fishing zone advisories for the selected coastal
             sector.
@@ -208,7 +214,7 @@ export default function PFZPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <Fish className="w-4 h-4 text-emerald-400" />
               <span>Fishing zones — {selectedSector.name}</span>
@@ -351,11 +357,14 @@ export default function PFZPage() {
         </div>
 
         <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <Layers className="w-4 h-4 text-ocean-400" />
               <span>Zone preview</span>
             </h2>
+            <StaleBadge
+              url={`/map/layers?sector=${encodeURIComponent(selectedSector.name)}`}
+            />
           </div>
 
           <MarineMap

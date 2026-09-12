@@ -1,25 +1,26 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MainLayout from "./layouts/MainLayout";
-import HomePage from "./pages/HomePage";
-import DashboardPage from "./pages/DashboardPage";
-import MapPage from "./pages/MapPage";
-import RoutesPage from "./pages/RoutesPage";
-import AlertsPage from "./pages/AlertsPage";
-import PFZPage from "./pages/PFZPage";
-import DataSourcesPage from "./pages/DataSourcesPage";
-import ChatPage from "./pages/ChatPage";
-import HistoryPage from "./pages/HistoryPage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ProfilePage from "./pages/ProfilePage";
-import NotFoundPage from "./pages/NotFoundPage";
-import ProtectedRoute from "./components/ProtectedRoute";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { AuthProvider } from "./context/AuthContext";
-import { LanguageProvider } from "./context/LanguageContext";
-import { NotificationProvider } from "./context/NotificationContext"; // NEW
-import { checkHealth } from "./services/healthService";
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import HomePage from './pages/HomePage';
+import DashboardPage from './pages/DashboardPage';
+import MapPage from './pages/MapPage';
+import RoutesPage from './pages/RoutesPage';
+import AlertsPage from './pages/AlertsPage';
+import PFZPage from './pages/PFZPage';
+import DataSourcesPage from './pages/DataSourcesPage';
+import ChatPage from './pages/ChatPage';
+import HistoryPage from './pages/HistoryPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
+import NotFoundPage from './pages/NotFoundPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { OfflineProvider } from './context/OfflineContext';
+import { PendingActionProvider } from './context/PendingActionContext';
+import { checkHealth } from './services/healthService';
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState({
@@ -61,44 +62,40 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <LanguageProvider>
-          <NotificationProvider>
-            <BrowserRouter>
-              <MainLayout apiStatus={apiStatus}>
-                <Routes>
-                  <Route
-                    path="/"
-                    element={<HomePage apiStatus={apiStatus} />}
-                  />
-                  <Route path="/chat" element={<ChatPage />} />
-                  <Route path="/map" element={<MapPage />} />
-                  <Route path="/routes" element={<RoutesPage />} />
-                  <Route path="/alerts" element={<AlertsPage />} />
-                  <Route path="/pfz" element={<PFZPage />} />
-                  <Route path="/sources" element={<DataSourcesPage />} />
-                  <Route path="/history" element={<HistoryPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route
-                    path="/dashboard"
-                    element={<DashboardPage apiStatus={apiStatus} />}
-                  />
-                  <Route
-                    path="/profile"
-                    element={
-                      <ProtectedRoute>
-                        <ProfilePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </MainLayout>
-            </BrowserRouter>
-          </NotificationProvider>
-        </LanguageProvider>
-      </AuthProvider>
+      <OfflineProvider>
+        <PendingActionProvider>
+          <AuthProvider>
+            <LanguageProvider>
+              <BrowserRouter>
+                <MainLayout apiStatus={apiStatus}>
+                  <Routes>
+                    <Route path="/" element={<HomePage apiStatus={apiStatus} />} />
+                    <Route path="/chat" element={<ChatPage />} />
+                    <Route path="/map" element={<MapPage />} />
+                    <Route path="/routes" element={<RoutesPage />} />
+                    <Route path="/alerts" element={<AlertsPage />} />
+                    <Route path="/pfz" element={<PFZPage />} />
+                    <Route path="/sources" element={<DataSourcesPage />} />
+                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/dashboard" element={<DashboardPage apiStatus={apiStatus} />} />
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <ProfilePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </MainLayout>
+              </BrowserRouter>
+            </LanguageProvider>
+          </AuthProvider>
+        </PendingActionProvider>
+      </OfflineProvider>
     </ErrorBoundary>
   );
 }

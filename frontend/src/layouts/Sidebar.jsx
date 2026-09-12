@@ -8,10 +8,12 @@ import {
   Navigation,
   History,
   User,
-  X,
-} from "lucide-react";
-import clsx from "clsx";
-import { useAuth } from "../hooks/useAuth";
+  Radio
+} from 'lucide-react';
+import clsx from 'clsx';
+import { useAuth } from '../hooks/useAuth';
+import SidebarStatusDot from '../components/SidebarStatusDot';
+import { ROUTE_AVAILABILITY } from '../utils/routeAvailability';
 
 const navItems = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -75,8 +77,20 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
                   )
                 }
               >
-                <item.icon className="w-4 h-4 shrink-0" />
-                <span className="truncate">{item.name}</span>
+                <div className="flex items-center gap-3">
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <SidebarStatusDot
+                    availability={ROUTE_AVAILABILITY[item.path] || 'online'}
+                  />
+                  {item.badge && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
               </NavLink>
             ))}
           </nav>
