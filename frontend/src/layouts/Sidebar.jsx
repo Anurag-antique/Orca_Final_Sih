@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../hooks/useAuth';
+import SidebarStatusDot from '../components/SidebarStatusDot';
+import { ROUTE_AVAILABILITY } from '../utils/routeAvailability';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, ready: true },
@@ -58,11 +60,16 @@ export default function Sidebar() {
                   <item.icon className="w-4 h-4" />
                   <span>{item.name}</span>
                 </div>
-                {item.badge && (
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
-                    {item.badge}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <SidebarStatusDot
+                    availability={ROUTE_AVAILABILITY[item.path] || 'online'}
+                  />
+                  {item.badge && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
               </NavLink>
             ))}
           </nav>
