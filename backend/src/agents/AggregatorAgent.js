@@ -11,7 +11,7 @@ class AggregatorAgent extends BaseAgent {
       ocean: null,
       pfz: null,
       advisory: null,
-      geospatial: null,
+      geofence: null,
       workerAudits: []
     };
 

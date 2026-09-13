@@ -1,6 +1,7 @@
 const BaseAgent = require('./BaseAgent');
 const ExplainabilityService = require('../services/explainability.service');
 const groqService = require('../services/groq.service');
+const LessonsService = require('../services/lessons.service');
 
 const LANGUAGE_NAMES = {
   en: 'English',
@@ -11,33 +12,69 @@ const LANGUAGE_NAMES = {
   gu: 'Gujarati'
 };
 
-const CHITCHAT_SYSTEM_PROMPT = `You are ORCA, a friendly AI marine safety assistant for Indian coastal fishermen and vessel operators.
+const CHITCHAT_SYSTEM_PROMPT = `You are ORCA, a friendly, respectful AI marine safety assistant for Indian coastal fishermen and vessel operators.
 The user just sent a casual/greeting message (not a marine data question).
-Reply warmly and briefly (1-3 sentences) in the requested language, then mention you can help with things like:
-- whether it's safe to go fishing today/tomorrow
-- nearby potential fishing zones (PFZ)
-- current weather/wave advisories
-- restricted/protected zone boundaries
-Keep it short, natural, and conversational — do not invent any weather/ocean numbers.`;
+- If the user greeted or asked how to greet you (e.g. "ram ram bolu ki namaskar", "hello", "namaskar"), respond warmly and naturally to their greeting (e.g. in Marathi: "नमस्कार! राम राम म्हणा किंवा नमस्कार, दोन्ही चालेल!", in Hindi: "राम राम! नमस्ते! आप दोनों में से कुछ भी कह सकते हैं").
+- If the user introduced themselves or shared their name (e.g. "me abc", "mazha naav abc"), greet and remember them warmly (e.g. "नमस्कार abc भावा!").
+- Reply briefly (1-3 sentences) in the requested language, then mention you are ready to help with:
+  * Fishing voyage safety (today/tomorrow)
+  * Potential fishing zones (PFZ)
+  * Weather, wave & wind advisories
+  * Restricted / sanctuary zones
+- Keep it natural, warm, and conversational — do not invent any weather/ocean numbers.`;
 
-const WEATHER_ONLY_SYSTEM_PROMPT = `You are ORCA, a marine assistant. The user asked a plain factual question about current weather/sea conditions — NOT a safety assessment.
-You will be given a JSON object with sector name and live weather/ocean data (some fields may be null if unavailable).
-Reply in the requested language, in 1-4 short sentences, conversationally — like answering a text message, not writing a report.
-Include only the 2-4 most relevant figures (e.g. temperature, wind speed/direction, wave height) that are actually present in the JSON.
+const WEATHER_ONLY_SYSTEM_PROMPT = `You are ORCA, a friendly marine safety assistant for Indian coastal fishermen. The user asked a factual question about current weather/sea conditions (e.g. "mosoom ka kya halchal?", "how is the weather?").
+You will be given a JSON object with the user's query ("userQuery"), sector name, and live weather/ocean data (some fields may be null if unavailable).
+Reply in the requested language, in 2-4 short sentences, conversationally — like a knowledgeable harbour master or friendly co-pilot.
+Include the 2-4 most relevant figures (e.g. temperature, wind speed/direction, wave height) that are actually present in the JSON.
 Do NOT invent numbers for null/missing fields — just skip them or say that specific figure isn't available.
 Do NOT include risk scores, headings, bullet lists, citations, or safety disclaimers — just a short natural answer.`;
 
-const NARRATIVE_SYSTEM_PROMPT = `You are ORCA, a marine safety intelligence assistant for Indian coastal fishermen and vessel operators.
-You will be given: the user's intent, target sector, a JSON evidence object (weather, ocean, pfz, advisory, geospatial data — some fields may be missing/null), and a deterministically pre-computed risk assessment (level + score).
+const NARRATIVE_SYSTEM_PROMPT = `You are ORCA, an experienced, trustworthy AI marine safety co-pilot for Indian coastal fishermen and vessel operators.
+You will be given:
+- "userQuery": the mariner's actual message.
+- "intent": the classified query intent.
+- "sector": the target coastal sector.
+- "riskLevel" & "riskScore": the deterministically pre-computed safety evaluation (LOW, MODERATE, HIGH, or CRITICAL, score 0-100).
+- "evidence": JSON containing live weather, ocean, pfz, advisory, and geospatial data.
 
-Write a clear, operational response in the requested language, in Markdown, following this general shape:
-- A short heading naming the sector.
-- The risk level and score (use EXACTLY the given level/score — never invent or change these numbers).
-- The relevant evidence fields that are actually present in the JSON (do not invent numbers for fields that are null/missing — instead state that specific data point is unavailable).
-- A short, practical safety/operational recommendation consistent with the given risk level.
-- End with a one-line disclaimer that this is AI decision support and mariners should verify via VHF Channel 16 before departure.
+CRITICAL INSTRUCTIONS FOR YOUR RESPONSE:
+1. DIRECT CONVERSATIONAL ANSWER FIRST:
+   - Start immediately by directly answering what the mariner asked in 1-2 friendly, clear sentences.
+   - If they asked whether they should go out or not (e.g. "jau ki nako?", "can I go?"):
+     Give an explicit operational verdict right away based on the riskLevel (e.g., in Marathi: "नमस्कार भावा! उद्या समुद्रात मध्यम जोखीम (MODERATE RISK) आहे, त्यामुळे खोल समुद्रात जाणे टाळा किंवा १५ नॉटिकल मैलांच्या आत राहून सावधगिरी बाळगा." or in Hindi: "नमस्ते! कल समुद्र में मध्यम जोखिम है, इसलिए...").
+     If the mariner mentioned their name or addressed you (e.g. "bhava", "me abc"), address them respectfully and warmly.
+   - If they asked specifically about PFZ / fish catch (e.g. "pfz ka kya scene?", "where are the fish?"):
+     Directly describe the nearest Potential Fishing Zone first (name, distance, bearing, target fish species like mackerel/trevally) and whether conditions allow reaching it safely.
+2. OPERATIONAL SUMMARY:
+   - Include a concise section heading:
+     * In Marathi: "### सागरी सुरक्षा मूल्यांकन — [Sector]"
+     * In Hindi: "### समुद्री सुरक्षा मूल्यांकन — [Sector]"
+     * In English: "### Marine Safety Assessment — [Sector]"
+   - State the official risk level and score clearly (e.g., **जोखीम पातळी:** **MODERATE RISK (४६/१००)** in Marathi / Hindi). NEVER alter or fabricate these numbers.
+3. FOCUSED LIVE EVIDENCE:
+   - Mention only the 3-5 most important conditions that matter to their question (waves, wind speed & gusts, tide, or PFZ).
+   - Do NOT dump a massive 15-item list of irrelevant or null readings. Be punchy and practical.
+4. PRACTICAL OPERATIONAL ADVICE:
+   - Give actionable advice tailored to coastal fishermen (e.g. boat limits, safe return times before evening swells).
+   - End with the standard one-line safety note: "AI निर्णय साहाय्य सल्ला आहे; प्रस्थान करण्यापूर्वी VHF चॅनल 16 वर पुष्टी करा." (or Hindi/English equivalent).
+5. COMPLETENESS & FLOW:
+   - Ensure the answer is fully written, grammatically natural in the requested language, and NEVER cut off mid-sentence.`;
 
-Be concise (roughly 120-220 words). Never fabricate specific numeric readings that are not present in the evidence JSON.`;
+const SELF_CHECK_SYSTEM_PROMPT = `You are a fact-checking reviewer for ORCA, a marine safety assistant. You will be given the EXACT riskLevel and riskScore that must appear in a drafted response, the evidence JSON that was actually available, and the drafted text itself.
+
+Check for exactly two error types, nothing else:
+1. The risk level or score stated in the draft does not exactly match the given riskLevel/riskScore.
+2. The draft states a specific numeric reading (temperature, wind speed, wave height, humidity, pressure, etc.) that does not appear anywhere in the evidence JSON — a fabricated number.
+
+Do not flag stylistic choices, phrasing, tone, length, or recommendations — only these two factual error types.
+
+Respond ONLY with a JSON object of this exact shape:
+{
+  "isValid": true or false,
+  "issues": ["short description of each problem found, empty array if none"],
+  "correctedText": "only present if isValid is false — the full corrected draft with ONLY the identified numeric/risk errors fixed, everything else preserved exactly as-is"
+}`;
 
 class ExplainerAgent extends BaseAgent {
   constructor() {
@@ -86,6 +123,7 @@ class ExplainerAgent extends BaseAgent {
         text = await groqService.chatText({
           system: WEATHER_ONLY_SYSTEM_PROMPT,
           user: JSON.stringify({
+            userQuery: originalMessage || '',
             language: languageName,
             sector: targetSector,
             weather,
@@ -93,7 +131,7 @@ class ExplainerAgent extends BaseAgent {
           }),
           history,
           temperature: 0.3,
-          maxTokens: 200
+          maxTokens: 400
         });
         if (!text) throw new Error('Empty response from LLM');
       } catch (err) {
@@ -115,15 +153,25 @@ class ExplainerAgent extends BaseAgent {
     }
 
     // --- MARINE INTENTS: try LLM narrative synthesis over real evidence, fallback to static templates ---
-    const { weather, ocean, pfz, advisory, geospatial } = aggregatedEvidence.evidence;
+    const { weather, ocean, pfz, advisory, geofence: geospatial } = aggregatedEvidence.evidence;
     const { level, score } = riskAssessment;
+
+    // Cross-session self-improvement: pull recent self-check corrections for
+    // this intent so the model can avoid repeating a mistake it already made
+    // in a past conversation. Retrieval-based, not model fine-tuning — no
+    // training pipeline or dataset required.
+    const recentLessons = await LessonsService.getRecentLessons(primaryIntent).catch(() => []);
 
     let text;
     let usedFallback = false;
+    let selfCorrected = false;
     try {
       text = await groqService.chatText({
-        system: NARRATIVE_SYSTEM_PROMPT,
+        system: NARRATIVE_SYSTEM_PROMPT + (recentLessons.length > 0
+          ? `\n\nLessons from past mistakes on this exact intent — do not repeat these:\n- ${recentLessons.join('\n- ')}`
+          : ''),
         user: JSON.stringify({
+          userQuery: originalMessage || '',
           language: languageName,
           intent: primaryIntent,
           sector: targetSector,
@@ -133,9 +181,36 @@ class ExplainerAgent extends BaseAgent {
         }),
         history,
         temperature: 0.3,
-        maxTokens: 700
+        maxTokens: 1200
       });
       if (!text) throw new Error('Empty response from LLM');
+
+      // --- Self-correction pass: verify the draft's risk level/score and
+      // numeric claims against ground truth before this ever reaches the user.
+      try {
+        const review = await groqService.chatJSON({
+          system: SELF_CHECK_SYSTEM_PROMPT,
+          user: JSON.stringify({
+            riskLevel: level,
+            riskScore: score,
+            evidence: { weather, ocean, pfz, advisory, geospatial },
+            draftText: text
+          }),
+          temperature: 0.1,
+          maxTokens: 2000
+        });
+
+        if (review && review.isValid === false && review.correctedText) {
+          console.warn(`[ExplainerAgent] Self-check found issues, applying correction: ${(review.issues || []).join('; ')}`);
+          text = review.correctedText;
+          selfCorrected = true;
+          if (review.issues && review.issues.length > 0) {
+            LessonsService.recordLesson(primaryIntent, review.issues.join('; ')).catch(() => {});
+          }
+        }
+      } catch (reviewErr) {
+        console.warn('[ExplainerAgent] Self-check pass failed (keeping original draft):', reviewErr.message);
+      }
     } catch (err) {
       console.warn('[ExplainerAgent] Narrative LLM call failed, falling back to static template:', err.message);
       text = this._legacyTemplate({ intentResult, weather, ocean, pfz, advisory, level, score });
@@ -159,7 +234,7 @@ class ExplainerAgent extends BaseAgent {
       citations: explainabilityPackage.citations,
       explainabilityPackage,
       disclaimer: 'Decision support only. Conditions at sea are subject to rapid change.',
-      synthesisMethod: usedFallback ? 'TEMPLATE_FALLBACK' : 'LLM_GROQ'
+      synthesisMethod: usedFallback ? 'TEMPLATE_FALLBACK' : (selfCorrected ? 'LLM_GROQ_SELF_CORRECTED' : 'LLM_GROQ')
     };
   }
 

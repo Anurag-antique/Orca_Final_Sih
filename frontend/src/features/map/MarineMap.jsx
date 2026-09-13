@@ -65,16 +65,14 @@ function MapView({ center, simulation, layersData, onPointSelect }) {
 }
 
 function BaseTiles() {
-  const key = import.meta.env.VITE_CARTO_API_KEY?.trim();
-  const [failed, setFailed] = useState(false);
-  const carto = key && !failed;
+  // Plain OpenStreetMap tiles — no API key, no CORS/referrer restrictions,
+  // guaranteed to load. A gentle tint keeps it in the app's dark theme
+  // without the old grayscale+invert combo that made water look black.
   return <TileLayer
-    key={carto ? "carto-dark" : "osm-dark"}
-    url={carto ? `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}` : "https://tile.openstreetmap.org/{z}/{x}/{y}.png"}
+    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
     maxZoom={19}
-    className={!carto ? "map-tiles-dark" : ""}
-    attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' + (carto ? ' &copy; <a href="https://carto.com/attributions">CARTO</a>' : '')}
-    eventHandlers={{ tileerror: () => { if (carto) setFailed(true); } }}
+    className="map-tiles-dark"
+    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   />;
 }
 
