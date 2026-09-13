@@ -23,8 +23,20 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Sanitized request logging — never expose ?token=… in logs.
 if (config.env !== "test") {
-  app.use(morgan("dev"));
+  app.use(
+    morgan((tokens, req, res) => {
+      const rawUrl = req.originalUrl || req.url || "";
+      const url = rawUrl.replace(/([?&]token=)[^&]*/gi, "$1[redacted]");
+      return [
+        tokens.method(req, res),
+        url,
+        tokens.status(req, res),
+        `${tokens["response-time"](req, res)} ms`,
+      ].join(" ");
+    }),
+  );
 }
 
 app.use("/api", routes);
