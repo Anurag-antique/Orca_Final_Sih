@@ -32,28 +32,33 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
+
     const probeBackendHealth = async () => {
       try {
         const response = await checkHealth();
-        if (isMounted)
+        if (isMounted) {
           setApiStatus({
             connected: true,
             loading: false,
             data: response,
             error: null,
           });
+        }
       } catch (err) {
-        if (isMounted)
+        if (isMounted) {
           setApiStatus({
             connected: false,
             loading: false,
             data: null,
             error: err.message,
           });
+        }
       }
     };
+
     probeBackendHealth();
     const interval = setInterval(probeBackendHealth, 15000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
