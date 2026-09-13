@@ -21,6 +21,12 @@ import {
   ShieldCheck,
   Fish,
   Layers,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Radio,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const GIS_LAYERS = [
@@ -162,6 +168,8 @@ export default function MarineMap({
   height = "500px",
   compact = false,
   routePlan = null,
+  showDirectBaseline = false,
+  onToggleDirectBaseline,
   simulation = null,
   onPointSelect,
   safety = null,
@@ -169,6 +177,8 @@ export default function MarineMap({
   visibleLayers = GIS_LAYERS.map(([key]) => key),
   showOfficialLayers = false,
 }) {
+  const [legendOpen, setLegendOpen] = useState(false);
+
   const center =
     SECTOR_CENTERS[selectedSector] || SECTOR_CENTERS["Mumbai Coast"];
 
@@ -232,7 +242,13 @@ export default function MarineMap({
         style={{ height: "100%", width: "100%", background: "#020617" }}
         zoomControl={!compact}
       >
-        <MapView center={center} simulation={simulation} layersData={layersData} onPointSelect={onPointSelect} routePlan={routePlan} />
+        <MapView
+          center={center}
+          simulation={simulation}
+          layersData={layersData}
+          onPointSelect={onPointSelect}
+          routePlan={routePlan}
+        />
         <ResizeMap />
         <BaseTiles />
         {visibleLayers.length > 0 && <LayersControl position="topright">
@@ -277,8 +293,8 @@ export default function MarineMap({
           </Popup>
         </CircleMarker>}
 
-        {/* Direct Baseline Path (Unoptimized) Overlay */}
-        {routePlan?.directBaselineRoute?.coordinates && (
+        {/* Direct Baseline Path (Unoptimized) Overlay - OFF by default as straight-line cuts land */}
+        {showDirectBaseline && routePlan?.directBaselineRoute?.coordinates && (
           <Polyline
             positions={routePlan.directBaselineRoute.coordinates}
             pathOptions={{
@@ -292,19 +308,17 @@ export default function MarineMap({
               <div className="text-xs text-slate-900 font-sans">
                 <strong style={{ color: "#e11d48" }}>Direct Baseline Path (Unoptimized)</strong>
                 <br />
+                <span className="text-[10px] text-rose-600 font-semibold">⚠️ Unsafe: Cuts directly across landmass / military hazards</span>
+                <br />
                 Distance: {routePlan.directBaselineRoute.totalDistanceNm} NM
                 <br />
                 Risk Score: <strong>{routePlan.directBaselineRoute.riskScore}/100</strong>
-                <br />
-                Max Wave Swell: {routePlan.directBaselineRoute.maxWaveExposureM} m
-                <br />
-                Hazards: {routePlan.directBaselineRoute.hazardBreaches > 0 ? `⚠️ ${routePlan.directBaselineRoute.hazardBreaches} Breach Detected` : "Clear"}
               </div>
             </Popup>
           </Polyline>
         )}
 
-        {/* Lower-Risk Recommended Route Overlay */}
+        {/* Lower-Risk Recommended Route Overlay (100% Waterway Trajectory) */}
         {routePlan?.lowerRiskProposedRoute?.coordinates && (
           <Polyline
             positions={routePlan.lowerRiskProposedRoute.coordinates}
@@ -317,10 +331,10 @@ export default function MarineMap({
             <Popup>
               <div className="text-xs text-slate-900 font-sans">
                 <strong style={{ color: "#0891b2" }}>
-                  Lower-Risk Route Recommendation
+                  Lower-Risk Route Recommendation (100% Sea Lane)
                 </strong>
                 <br />
-                Distance: {routePlan.lowerRiskProposedRoute.totalDistanceNm} NM
+                Distance: <strong>{routePlan.lowerRiskProposedRoute.totalDistanceNm} NM</strong>
                 <br />
                 Risk Score: <strong>{routePlan.lowerRiskProposedRoute.riskScore}/100</strong> ({routePlan.lowerRiskProposedRoute.riskLevel})
                 <br />
@@ -399,6 +413,127 @@ export default function MarineMap({
           </Marker>
         )}
       </MapContainer>
+
+      {/* Floating Interactive Map Legend & Symbols Box */}
+      <div className="absolute bottom-4 left-3 z-[999] pointer-events-auto transition-all max-w-[calc(100vw-24px)] sm:max-w-xs">
+        {!legendOpen ? (
+          <button
+            onClick={() => setLegendOpen(true)}
+            className="px-3 py-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-2 shadow-2xl hover:bg-slate-900 transition hover:border-cyan-700"
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Map Symbols & Legend</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 font-mono">Guide</span>
+          </button>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-slate-950/95 backdrop-blur-lg border border-slate-800 text-slate-200 shadow-2xl space-y-2.5 max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="font-bold text-xs text-white flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Maritime Map Symbols Guide</span>
+              </span>
+              <button
+                onClick={() => setLegendOpen(false)}
+                className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-800"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="space-y-2 text-[11px]">
+              {/* Recommended Route */}
+              <div className="flex items-start gap-2">
+                <div className="w-4 h-1 bg-cyan-400 mt-1.5 rounded-full shrink-0 shadow-sm shadow-cyan-400" />
+                <div>
+                  <strong className="text-cyan-300 block">Cyan Solid Line</strong>
+                  <span className="text-slate-400 text-[10px]">Recommended safe sea route (100% water, avoiding land & hazards)</span>
+                </div>
+              </div>
+
+              {/* Waypoints */}
+              <div className="flex items-start gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 border border-white mt-1 shrink-0" />
+                <div>
+                  <strong className="text-slate-200 block">Cyan Waypoint Dots</strong>
+                  <span className="text-slate-400 text-[10px]">Navigation turns — click any dot for local waves, wind & course</span>
+                </div>
+              </div>
+
+              {/* Live GPS */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs shrink-0">📍</span>
+                <div>
+                  <strong className="text-cyan-300 block">Pulsing Cyan Beacon</strong>
+                  <span className="text-slate-400 text-[10px]">Your active vessel live GPS location</span>
+                </div>
+              </div>
+
+              {/* Harbors & Destinations */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs shrink-0">⚓ / 🎯</span>
+                <div>
+                  <strong className="text-slate-200 block">Anchor & Bullseye</strong>
+                  <span className="text-slate-400 text-[10px]">⚓ Departure port &bull; 🎯 Destination fishing ground / PFZ</span>
+                </div>
+              </div>
+
+              {/* PFZ Zones */}
+              <div className="flex items-start gap-2">
+                <div className="w-3.5 h-3 rounded bg-emerald-500/40 border border-emerald-400 mt-0.5 shrink-0" />
+                <div>
+                  <strong className="text-emerald-300 block">Green Shaded (PFZ)</strong>
+                  <span className="text-slate-400 text-[10px]">Potential Fishing Zones (high fish biomass & thermal fronts)</span>
+                </div>
+              </div>
+
+              {/* Military Restricted */}
+              <div className="flex items-start gap-2">
+                <div className="w-3.5 h-3 rounded bg-rose-500/30 border border-rose-500 border-dashed mt-0.5 shrink-0" />
+                <div>
+                  <strong className="text-rose-300 block">Red Dashed Zones</strong>
+                  <span className="text-slate-400 text-[10px]">Naval firing perimeters (e.g. INS Trata — strict avoidance)</span>
+                </div>
+              </div>
+
+              {/* Submerged Hazards */}
+              <div className="flex items-start gap-2">
+                <div className="w-3.5 h-3 rounded bg-amber-500/35 border border-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <strong className="text-amber-300 block">Amber Shaded Zones</strong>
+                  <span className="text-slate-400 text-[10px]">Submerged coral reefs, atolls & shoals (e.g. Angria Bank)</span>
+                </div>
+              </div>
+
+              {/* IMBL */}
+              <div className="flex items-start gap-2">
+                <div className="w-4 h-0.5 border-t-2 border-red-500 border-dashed mt-1.5 shrink-0" />
+                <div>
+                  <strong className="text-red-400 block">Red Dashed Line (IMBL)</strong>
+                  <span className="text-slate-400 text-[10px]">International Maritime Boundary Line</span>
+                </div>
+              </div>
+
+              {/* Baseline Path Toggle */}
+              {onToggleDirectBaseline && (
+                <div className="pt-2 border-t border-slate-800">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showDirectBaseline}
+                      onChange={(e) => onToggleDirectBaseline(e.target.checked)}
+                      className="rounded accent-rose-500 bg-slate-900 border-slate-700"
+                    />
+                    <span className="text-[10px] text-slate-300 flex items-center gap-1">
+                      {showDirectBaseline ? <Eye className="w-3 h-3 text-rose-400" /> : <EyeOff className="w-3 h-3 text-slate-500" />}
+                      <span>Show Straight-Line Baseline (Compare Land Cut)</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

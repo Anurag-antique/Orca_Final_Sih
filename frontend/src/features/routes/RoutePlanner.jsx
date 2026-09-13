@@ -19,12 +19,18 @@ import {
   Zap,
   RotateCcw,
   Eye,
+  EyeOff,
   AlertOctagon
 } from 'lucide-react';
 import { routeService } from '../../services/routeService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
-export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
+export default function RoutePlanner({
+  onRouteGenerated,
+  currentPlan,
+  showDirectBaseline = false,
+  onToggleDirectBaseline
+}) {
   const [harbors, setHarbors] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -163,31 +169,29 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
   const plan = currentPlan;
   const direct = plan?.directBaselineRoute;
   const proposed = plan?.lowerRiskProposedRoute;
-  const directParams = direct?.environmentalParameters;
-  const proposedParams = proposed?.environmentalParameters;
   const safetyComp = proposed?.safetyComparison;
 
   return (
-    <div className="space-y-4 text-xs">
+    <div className="space-y-3 sm:space-y-4 text-xs">
       {/* Configuration Controls Card */}
-      <div className="p-5 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-4 shadow-xl">
+      <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-3.5 sm:space-y-4 shadow-xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <Navigation className="w-4 h-4 text-cyan-400" />
-            <h2 className="font-bold text-slate-100 text-sm">Dynamic Maritime Route Recommendation</h2>
+            <h2 className="font-bold text-slate-100 text-sm">Dynamic Maritime Route Planner</h2>
           </div>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold flex items-center gap-1">
             <Zap className="w-3 h-3 text-cyan-400" />
-            Sub-50ms Router
+            &lt;50ms Router
           </span>
         </div>
 
         {/* Live GPS Location Bar */}
         <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="font-semibold text-slate-300 flex items-center gap-1.5 text-[11px] sm:text-xs">
               <Radio className={`w-3.5 h-3.5 ${isUsingLiveLocation ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
-              <span>Live Vessel Location Routing:</span>
+              <span>Live Vessel GPS Routing:</span>
             </span>
 
             {isUsingLiveLocation ? (
@@ -202,7 +206,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
               <button
                 onClick={handleGetLiveLocation}
                 disabled={gpsLoading}
-                className="px-2.5 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 font-semibold text-[11px] flex items-center gap-1.5 transition shadow-sm"
+                className="px-2.5 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-700 text-cyan-300 font-semibold text-[11px] flex items-center gap-1.5 transition shadow-sm"
               >
                 {gpsLoading ? <LoadingSpinner size="sm" /> : <MapPin className="w-3 h-3 text-cyan-400" />}
                 Use My Live GPS
@@ -211,13 +215,13 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
           </div>
 
           {isUsingLiveLocation && liveLocation && (
-            <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px]">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px] flex-wrap gap-1">
               <span className="flex items-center gap-1.5 font-mono font-medium">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                Lat: {liveLocation.lat.toFixed(4)}°N, Lon: {liveLocation.lon.toFixed(4)}°E
+                {liveLocation.lat.toFixed(4)}°N, {liveLocation.lon.toFixed(4)}°E
               </span>
               <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-900/60 px-1.5 py-0.5 rounded">
-                Active Fix (±{liveLocation.accuracy}m)
+                Fix (±{liveLocation.accuracy}m)
               </span>
             </div>
           )}
@@ -251,7 +255,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
             <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
             <div>
               <span className="text-slate-500 text-[10px] block">Departure Origin:</span>
-              <span className="font-semibold text-emerald-300">Live GPS Coordinates (snapping to coastal water)</span>
+              <span className="font-semibold text-emerald-300">Live GPS Coordinates (snapped to coastal water)</span>
             </div>
           </div>
         )}
@@ -282,8 +286,8 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
               <Sparkles className="w-3 h-3 text-amber-400" />
               <span>Predetermined Maritime Corridors:</span>
             </span>
-            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-              {templates.slice(0, 6).map((tpl) => (
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+              {templates.map((tpl) => (
                 <button
                   key={tpl.id}
                   onClick={() => handleApplyTemplate(tpl)}
@@ -298,7 +302,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
         )}
 
         {/* Cruising Speed & Vessel Profile */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <div className="space-y-1">
             <label className="text-slate-400 text-[11px] block">Vessel Type:</label>
             <select
@@ -314,7 +318,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Speed:</span>
+              <span className="text-slate-400">Cruising Speed:</span>
               <span className="font-mono font-bold text-cyan-400">{cruisingSpeed} Knots</span>
             </div>
             <input
@@ -335,7 +339,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
           className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-ocean-600 hover:from-cyan-500 hover:to-ocean-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-lg shadow-cyan-950/50"
         >
           {loading ? <LoadingSpinner size="sm" /> : <Navigation className="w-4 h-4" />}
-          <span>{loading ? 'Evaluating Contextual Hazards...' : 'Calculate Lower-Risk Trajectory'}</span>
+          <span>{loading ? 'Evaluating Parameters...' : 'Calculate Safe Trajectory'}</span>
         </button>
       </div>
 
@@ -344,7 +348,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
-              Multi-Parameter Context & Telemetry
+              Environmental Context & Telemetry
             </span>
             <span className="text-[10px] text-cyan-400 font-mono">
               WMO & INCOIS Validated
@@ -356,123 +360,99 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
             <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-800/80 text-cyan-300 text-[11px] flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-cyan-200">Safety Routing Verdict: </strong>
+                <strong className="text-cyan-200">Safety Verdict: </strong>
                 {safetyComp.explanation}
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Direct Baseline Path Card */}
-            <div className="p-3.5 rounded-xl bg-slate-900/70 border border-rose-900/60 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-rose-300 text-xs flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  <span>Direct Baseline (Unsafe)</span>
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 border border-rose-800 text-rose-300 font-bold">
-                  Score: {direct?.riskScore}/100 ({direct?.riskLevel})
-                </span>
-              </div>
+          {/* Primary Recommended Route Card (100% Waterway) */}
+          <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-700 space-y-3 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/80">
-                <div>
-                  <span className="text-slate-500 block">Distance:</span>
-                  <strong className="text-slate-200">{direct?.totalDistanceNm} NM</strong> ({direct?.totalDistanceKm} km)
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Est. Time:</span>
-                  <strong className="text-slate-200">{direct?.estimatedDurationHours} Hours</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block flex items-center gap-1">
-                    <Waves className="w-3 h-3 text-rose-400" /> Max Swell:
-                  </span>
-                  <strong className="text-rose-400">{direct?.maxWaveExposureM} m</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block flex items-center gap-1">
-                    <Wind className="w-3 h-3 text-rose-400" /> Max Wind:
-                  </span>
-                  <strong className="text-rose-400">{direct?.maxWindExposureKmh} km/h</strong>
-                </div>
-                <div className="col-span-2 pt-1 border-t border-slate-800/40">
-                  <span className="text-slate-500 block">Geofence Hazards:</span>
-                  {direct?.hazardBreaches > 0 ? (
-                    <span className="text-rose-400 font-semibold flex items-center gap-1">
-                      <AlertOctagon className="w-3 h-3" />
-                      {direct.hazardBreaches} Breach ({direct.breachedZones?.join(', ') || 'INS Trata Perimeter'})
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">Clear of restricted zones</span>
-                  )}
-                </div>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-cyan-300 text-xs flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                <span>Recommended Route (100% Sea Lane)</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">
+                Score: {proposed?.riskScore}/100 ({proposed?.riskLevel})
+              </span>
             </div>
 
-            {/* Lower-Risk Recommended Route Card */}
-            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-cyan-700 space-y-2.5 shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-cyan-300 text-xs flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                  <span>Lower-Risk Recommendation</span>
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">
-                  Score: {proposed?.riskScore}/100 ({proposed?.riskLevel})
-                </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1 border-t border-slate-800/80">
+              <div>
+                <span className="text-slate-500 block">Distance:</span>
+                <strong className="text-slate-200">{proposed?.totalDistanceNm} NM</strong>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/80">
-                <div>
-                  <span className="text-slate-500 block">Distance:</span>
-                  <strong className="text-slate-200">{proposed?.totalDistanceNm} NM</strong>
-                  {proposed?.detourAdditionalNm > 0 && (
-                    <span className="text-slate-400 text-[10px]"> (+{proposed.detourAdditionalNm} NM)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Est. Time:</span>
-                  <strong className="text-slate-200">{proposed?.estimatedDurationHours} Hours</strong>
-                  {proposed?.detourAdditionalMinutes > 0 && (
-                    <span className="text-slate-400 text-[10px]"> (+{proposed.detourAdditionalMinutes}m)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-slate-500 block flex items-center gap-1">
-                    <Waves className="w-3 h-3 text-emerald-400" /> Max Swell:
-                  </span>
-                  <strong className="text-emerald-400">{proposed?.maxWaveExposureM} m</strong>
-                  <span className="text-[10px] text-emerald-500 font-semibold block">Sheltered Contour</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block flex items-center gap-1">
-                    <Fuel className="w-3 h-3 text-amber-400" /> Est. Fuel:
-                  </span>
-                  <strong className="text-slate-200">{proposed?.estimatedFuelLiters} Liters</strong>
-                </div>
-                <div className="col-span-2 pt-1 border-t border-slate-800/40">
-                  <span className="text-slate-500 block">Geofence Status:</span>
-                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    100% Clear of Military Perimeters & MPAs
-                  </span>
-                </div>
+              <div>
+                <span className="text-slate-500 block">Est. Time:</span>
+                <strong className="text-slate-200">{proposed?.estimatedDurationHours} Hours</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block flex items-center gap-1">
+                  <Waves className="w-3 h-3 text-emerald-400" /> Max Swell:
+                </span>
+                <strong className="text-emerald-400">{proposed?.maxWaveExposureM} m</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block flex items-center gap-1">
+                  <Fuel className="w-3 h-3 text-amber-400" /> Est. Fuel:
+                </span>
+                <strong className="text-slate-200">{proposed?.estimatedFuelLiters} L</strong>
+              </div>
+              <div className="col-span-2 sm:col-span-4 pt-1 border-t border-slate-800/40">
+                <span className="text-slate-500 block">Geofence Clearance:</span>
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  100% Clear of Military Firing Ranges & Protected Marine Areas
+                </span>
               </div>
             </div>
           </div>
 
+          {/* Unoptimized Direct Baseline Reference Card (Land-cutting Path) */}
+          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-400 text-[11px] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-slate-500" />
+                <span>Unoptimized Direct Baseline:</span>
+              </span>
+              <span className="text-[10px] font-mono text-slate-400">
+                Score: {direct?.riskScore}/100 ({direct?.hazardBreaches > 0 ? 'High Risk' : 'Baseline'})
+              </span>
+            </div>
+
+            <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
+              <span>Straight-line: {direct?.totalDistanceNm} NM &bull; Max Swell: {direct?.maxWaveExposureM}m &bull; Hazards: {direct?.hazardBreaches > 0 ? `${direct.hazardBreaches} Breach (${direct.breachedZones?.join(', ') || 'INS Trata'})` : 'None'}</span>
+            </div>
+
+            {onToggleDirectBaseline && (
+              <div className="pt-1 border-t border-slate-800/60 flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">Direct line cuts landmass & hazards:</span>
+                <label className="flex items-center gap-1 cursor-pointer text-[10px] text-cyan-400 hover:text-cyan-300 font-medium select-none">
+                  <input
+                    type="checkbox"
+                    checked={showDirectBaseline}
+                    onChange={(e) => onToggleDirectBaseline(e.target.checked)}
+                    className="rounded accent-rose-500 bg-slate-950 border-slate-700"
+                  />
+                  <span>{showDirectBaseline ? 'Hide from map' : 'Show on map to compare'}</span>
+                </label>
+              </div>
+            )}
+          </div>
+
           {/* Turn-by-Turn Steerage Directives */}
           {proposed?.turnByTurnDirectives?.length > 0 && (
-            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
                   <Navigation className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Turn-by-Turn Steerage Directives ({proposed.turnByTurnDirectives.length} Legs):</span>
+                  <span>Steerage Directives ({proposed.turnByTurnDirectives.length} Legs):</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  Magnetic Compass Bearings
+                  Magnetic Bearings
                 </span>
               </div>
 
@@ -492,7 +472,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
                         <span className="text-emerald-400">Wave: {leg.waveHeightM}m</span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
                       <div className="font-mono text-cyan-400 font-bold bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded text-[11px] shadow-sm">
                         {leg.bearingDegrees}°
                       </div>
@@ -508,7 +488,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
           <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[10px] text-slate-500 leading-relaxed space-y-1">
             <span className="font-bold text-slate-400">Scientific Navigational Disclaimer:</span>
             <p>
-              ORCA calculates <strong>"Lower-risk route recommendations"</strong> utilizing multi-parameter environmental context (wave forecasts, wind dynamics, military perimeters, and shallow bathymetry). The platform provides navigational decision support only; the Vessel Master maintains ultimate legal and operational command.
+              ORCA calculates <strong>"Lower-risk route recommendations"</strong> utilizing multi-parameter environmental context. The platform provides navigational decision support only; the Vessel Master maintains ultimate legal and operational command.
             </p>
           </div>
         </div>
