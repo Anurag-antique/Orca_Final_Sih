@@ -19,8 +19,12 @@ import {
 } from 'lucide-react';
 import { alertService } from '../../services/alertService';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AlertFeed({ onAlertChange }) {
+  const { user } = useAuth();
+  const userKey = user?.email || 'default';
+
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
@@ -35,8 +39,10 @@ export default function AlertFeed({ onAlertChange }) {
         severity: selectedSeverity !== 'ALL' ? selectedSeverity : undefined
       });
       if (res?.data) {
-        setAlerts(res.data);
-        if (onAlertChange) onAlertChange(res.data);
+        const localAcks = JSON.parse(localStorage.getItem(`orca_acks_${userKey}`) || '[]');
+        const withLocalAcks = res.data.map(a => localAcks.includes(a.id) ? { ...a, status: 'ACKNOWLEDGED' } : a);
+        setAlerts(withLocalAcks);
+        if (onAlertChange) onAlertChange(withLocalAcks);
       }
     } catch (err) {
       console.error('Error loading alerts:', err);
@@ -47,13 +53,14 @@ export default function AlertFeed({ onAlertChange }) {
 
   useEffect(() => {
     fetchAlerts();
-  }, [selectedSeverity, selectedSector]);
+  }, [selectedSeverity, selectedSector, userKey]);
 
   const handleSimulate = async (scenario) => {
     setActiveSimulation(scenario);
     try {
       await alertService.simulateAlert(scenario);
       await fetchAlerts();
+      window.dispatchEvent(new CustomEvent('orca-alert-change'));
     } catch (err) {
       console.error('Simulation error:', err);
     } finally {
@@ -64,7 +71,13 @@ export default function AlertFeed({ onAlertChange }) {
   const handleAcknowledge = async (id) => {
     try {
       await alertService.acknowledgeAlert(id);
+      const localAcks = JSON.parse(localStorage.getItem(`orca_acks_${userKey}`) || '[]');
+      if (!localAcks.includes(id)) {
+        localAcks.push(id);
+        localStorage.setItem(`orca_acks_${userKey}`, JSON.stringify(localAcks));
+      }
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'ACKNOWLEDGED' } : a));
+      window.dispatchEvent(new CustomEvent('orca-alert-change'));
     } catch (err) {
       console.error('Acknowledge error:', err);
     }
@@ -231,6 +244,15 @@ export default function AlertFeed({ onAlertChange }) {
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300">
                           {alert.sector}
                         </span>
+                        {alert.isSimulation ? (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-800 text-purple-300">
+                            SIMULATED DRILL
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300">
+                            LIVE OFFICIAL BULLETIN
+                          </span>
+                        )}
                         {isAck && (
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
                             ACKNOWLEDGED

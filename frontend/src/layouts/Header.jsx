@@ -18,21 +18,32 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 export default function Header({ apiStatus }) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchUnread = async () => {
       try {
         const res = await alertService.getAlerts({ status: 'ACTIVE' });
         if (res?.data) {
-          setUnreadCount(res.data.length);
+          const userKey = user?.email || 'default';
+          const localAcks = JSON.parse(localStorage.getItem(`orca_acks_${userKey}`) || '[]');
+          const activeUnread = res.data.filter(a => a.status === 'ACTIVE' && !localAcks.includes(a.id));
+          setUnreadCount(activeUnread.length);
         }
       } catch (err) {
         // silent fallback
       }
     };
+
     fetchUnread();
-  }, []);
+
+    const handleAlertChange = () => {
+      fetchUnread();
+    };
+
+    window.addEventListener('orca-alert-change', handleAlertChange);
+    return () => window.removeEventListener('orca-alert-change', handleAlertChange);
+  }, [user]);
 
   return (
     <header className="h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40">

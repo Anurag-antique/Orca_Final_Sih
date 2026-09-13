@@ -16,6 +16,7 @@ let alertsDatabase = [
       'Harbor authorities instructed to hoist Local Warning Signal No. 4.'
     ],
     isBroadcast: true,
+    isSimulation: true,
     status: 'ACTIVE'
   },
   {
@@ -34,6 +35,7 @@ let alertsDatabase = [
       'Recreational coastal beach activities prohibited during high tide.'
     ],
     isBroadcast: true,
+    isSimulation: true,
     status: 'ACTIVE'
   },
   {
@@ -51,6 +53,7 @@ let alertsDatabase = [
       'Monitor VHF Channel 12 for harbor master clearance.'
     ],
     isBroadcast: true,
+    isSimulation: true,
     status: 'ACTIVE'
   },
   {
@@ -68,6 +71,7 @@ let alertsDatabase = [
       'Disconnect auxiliary antennae not connected to lightning dissipators.'
     ],
     isBroadcast: false,
+    isSimulation: true,
     status: 'ACTIVE'
   },
   {
@@ -84,6 +88,7 @@ let alertsDatabase = [
       'Plan fishing net deployment to account for enhanced tidal drift.'
     ],
     isBroadcast: false,
+    isSimulation: true,
     status: 'ACTIVE'
   }
 ];
@@ -128,6 +133,7 @@ class AlertService {
       summary: alertData.summary || 'Operational alert broadcast to coastal mariners.',
       recommendedActions: alertData.recommendedActions || ['Monitor VHF Marine Channel 16.'],
       isBroadcast: alertData.isBroadcast ?? true,
+      isSimulation: alertData.isSimulation ?? true,
       status: 'ACTIVE'
     };
 
