@@ -22,17 +22,23 @@ import { mapService } from '../services/mapService';
 import { useAuth } from '../hooks/useAuth';
 import MarineMap from '../features/map/MarineMap';
 import RiskAuditViewer from '../features/risk/RiskAuditViewer';
+import StaleBadge from '../components/StaleBadge';
+import ApiError from '../components/ApiError';
 
 export default function DashboardPage({ apiStatus }) {
   const { user } = useAuth();
-  const [selectedSector, setSelectedSector] = useState(user?.preferredSector?.includes('Kochi') ? 'Kochi Harbor' : 'Mumbai Coast');
+  const [selectedSector, setSelectedSector] = useState(
+    user?.preferredSector?.includes('Kochi') ? 'Kochi Harbor' : 'Mumbai Coast'
+  );
   const [telemetry, setTelemetry] = useState(null);
   const [mapLayers, setMapLayers] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [dashRes, mapRes] = await Promise.all([
         dashboardService.getSummary(selectedSector),
@@ -42,6 +48,7 @@ export default function DashboardPage({ apiStatus }) {
       if (mapRes?.data) setMapLayers(mapRes.data);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -49,6 +56,7 @@ export default function DashboardPage({ apiStatus }) {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSector]);
 
   return (
@@ -56,11 +64,14 @@ export default function DashboardPage({ apiStatus }) {
       {/* Top Bar with Sector Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">Marine Operations Dashboard</h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
-              Phase 8 Risk Engine
+              Risk Engine Active
             </span>
+            <StaleBadge
+              url={`/dashboard?sector=${encodeURIComponent(selectedSector)}`}
+            />
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Real-time multi-agent telemetry aggregation and situational awareness
@@ -93,9 +104,11 @@ export default function DashboardPage({ apiStatus }) {
         </div>
       </div>
 
+      {error && <ApiError error={error} onRetry={fetchDashboardData} />}
+
       {/* Main Telemetry 4-Card Grid with Deterministic Engine Badges */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Risk Assessment Card (Phase 8 Deterministic Engine) */}
+        {/* 1. Risk Assessment Card */}
         <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -151,7 +164,7 @@ export default function DashboardPage({ apiStatus }) {
                 ? 'bg-amber-950 border-amber-800 text-amber-300'
                 : 'bg-teal-950 border-teal-800 text-teal-300'
             }`}>
-              {telemetry?.weather?.isFallback ? 'Fallback Model' : 'Live Open-Meteo'}
+              {telemetry?.weather?.isFallback ? 'Estimated (Backup Source)' : 'Live'}
             </span>
           </div>
           <div>
@@ -171,7 +184,7 @@ export default function DashboardPage({ apiStatus }) {
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
             <span>Cyclone: {telemetry?.weather?.cycloneAlert || 'None'}</span>
             <span className="truncate max-w-[110px]" title={telemetry?.weather?.sourceOrigin}>
-              {telemetry?.weather?.isFallback ? 'Mock Model' : 'Live Feed'}
+              {telemetry?.weather?.isFallback ? 'Estimated Data' : 'Live Feed'}
             </span>
           </div>
         </div>
@@ -268,10 +281,13 @@ export default function DashboardPage({ apiStatus }) {
       {/* Central Interactive Grid: Live MarineMap + AI Assistant */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-ocean-400" />
               <h2 className="font-bold text-slate-100 text-sm">Interactive Marine GIS Map</h2>
+              <StaleBadge
+                url={`/map/layers?sector=${encodeURIComponent(selectedSector)}`}
+              />
             </div>
             <Link
               to="/map"
@@ -299,7 +315,7 @@ export default function DashboardPage({ apiStatus }) {
                 <h2 className="font-bold text-slate-100">AI Marine Assistant</h2>
               </div>
               <span className="text-xs font-mono px-2 py-1 rounded bg-slate-800 text-slate-300">
-                Phase 6 & 7
+                Active
               </span>
             </div>
 
@@ -330,6 +346,23 @@ export default function DashboardPage({ apiStatus }) {
           </div>
         </div>
       </div>
+
+      {/* Risk Modal */}
+      {showRiskModal && telemetry?.riskAssessment && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 relative">
+            <button
+              onClick={() => setShowRiskModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-lg font-bold text-white mb-3">Risk Assessment Rules</h3>
+            <RiskAuditViewer riskAssessment={telemetry.riskAssessment} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

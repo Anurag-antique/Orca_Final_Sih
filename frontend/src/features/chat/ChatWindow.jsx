@@ -184,7 +184,7 @@ export default function ChatWindow() {
             <div className="flex items-center gap-2">
               <h2 className="font-bold text-white text-sm">{t('aiAssistant', 'ORCA Marine Intelligence Assistant')}</h2>
               <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-ocean-950 border border-ocean-800 text-ocean-300">
-                Phase 13 Multilingual
+                Multilingual
               </span>
             </div>
             <p className="text-[11px] text-slate-400">English • हिन्दी • मराठी • தமிழ் • മലയാളം • ગુજરાતી</p>

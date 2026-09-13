@@ -14,7 +14,7 @@ body {
 }
 
 .map-tiles-dark {
-  filter: grayscale(1) invert(1) brightness(.7) contrast(.85);
+  filter: brightness(0.72) contrast(1.05) saturate(0.85) hue-rotate(180deg);
 }
 
 .marine-map-page {

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import api from '../services/api';
 import { authService } from '../services/authService';
+import { clearAll as clearOfflineCache } from '../services/offlineCache';
 
 export const AuthContext = createContext(null);
 
@@ -9,6 +10,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('orca_auth_token'));
   const [loading, setLoading] = useState(true);
 
+  // (unchanged) header injection
   useEffect(() => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -24,15 +26,33 @@ export function AuthProvider({ children }) {
 
     const initAuth = async () => {
       const savedToken = localStorage.getItem('orca_auth_token');
-      if (savedToken) {
-        try {
-          api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-          const res = await authService.getProfile();
-          if (isMounted && res.user) {
-            setUser(res.user);
+      if (!savedToken) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      try {
+        api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+        const res = await authService.getProfile();
+        if (isMounted && res.user) {
+          setUser(res.user);
+          setToken(savedToken);
+        }
+      } catch (err) {
+        // Distinguish network failure from a real auth failure.
+        // Network failure  -> keep token, stay signed in optimistically.
+        // Real 401/403    -> clear token as before.
+        const isNetworkFailure =
+          err?.offline === true ||
+          err?.status === 0 ||
+          (!err?.status && !!err?.message);
+
+        if (isNetworkFailure) {
+          if (isMounted) {
             setToken(savedToken);
+            // user stays null until /auth/me succeeds again.
           }
-        } catch (err) {
+        } else {
           console.warn('[Auth] Session expired or invalid:', err.message);
           if (isMounted) {
             setUser(null);
@@ -80,6 +100,27 @@ export function AuthProvider({ children }) {
       setToken(null);
       delete api.defaults.headers.common['Authorization'];
       localStorage.removeItem('orca_auth_token');
+
+      // Wipe IndexedDB cache so nothing survives on shared devices.
+      try {
+        await clearOfflineCache();
+      } catch {
+        /* ignore */
+      }
+
+      // Wipe ORCA-managed Cache Storage entries.
+      try {
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(
+            names
+              .filter((n) => n.startsWith('orca-'))
+              .map((n) => caches.delete(n))
+          );
+        }
+      } catch {
+        /* ignore */
+      }
     }
   };
 
@@ -90,7 +131,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     register,
-    logout
+    logout,
   };
 
   return (

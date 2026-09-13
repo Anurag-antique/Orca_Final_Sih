@@ -15,47 +15,66 @@ import { useAuth } from '../hooks/useAuth';
 import { alertService } from '../services/alertService';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
-export default function Header({ apiStatus }) {
+export default function Header({ apiStatus, onMenuClick }) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchUnread = async () => {
       try {
         const res = await alertService.getAlerts({ status: 'ACTIVE' });
         if (res?.data) {
-          setUnreadCount(res.data.length);
+          const userKey = user?.email || 'default';
+          const localAcks = JSON.parse(localStorage.getItem(`orca_acks_${userKey}`) || '[]');
+          const activeUnread = res.data.filter(a => a.status === 'ACTIVE' && !localAcks.includes(a.id));
+          setUnreadCount(activeUnread.length);
         }
       } catch (err) {
         // silent fallback
       }
     };
+
     fetchUnread();
-  }, []);
+
+    const handleAlertChange = () => {
+      fetchUnread();
+    };
+
+    window.addEventListener('orca-alert-change', handleAlertChange);
+    return () => window.removeEventListener('orca-alert-change', handleAlertChange);
+  }, [user]);
 
   return (
     <header className="h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40">
       {/* Brand & Platform Identity */}
-      <div className="flex items-center gap-3">
-        <Link to="/" className="flex items-center gap-2.5 group">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="md:hidden p-2 -ml-1 rounded-xl bg-slate-900/80 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <Link to="/" className="flex items-center gap-2.5 group min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-ocean-600 via-ocean-500 to-tealAccent-500 flex items-center justify-center text-slate-950 shadow-lg shadow-ocean-950/60 group-hover:scale-105 transition">
             <Waves className="w-5 h-5 stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-black text-lg tracking-wider text-white">ORCA</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ocean-950 border border-ocean-800 text-tealAccent-400 font-bold">
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-ocean-950 border border-ocean-800 text-tealAccent-400 font-bold hidden xs:inline-block">
                 SIH 2026
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 leading-none">Agentic Marine Intelligence Platform</p>
+            <p className="text-[10px] text-slate-400 leading-none hidden sm:block">Agentic Marine Intelligence Platform</p>
           </div>
         </Link>
       </div>
 
       {/* Right Controls: Language Switcher, Alerts Bell, Backend State & Operator Auth */}
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Phase 13 Language Switcher */}
         <LanguageSwitcher />
 
@@ -93,7 +112,7 @@ export default function Header({ apiStatus }) {
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs text-slate-200 transition"
             >
               <User className="w-3.5 h-3.5 text-ocean-400" />
-              <span className="font-semibold">{user?.name?.split(' ')[0] || 'Operator'}</span>
+              <span className="font-semibold hidden xs:inline">{user?.name?.split(' ')[0] || 'Operator'}</span>
             </Link>
             <button
               onClick={logout}

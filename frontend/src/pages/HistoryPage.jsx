@@ -14,13 +14,16 @@ import {
   Sliders
 } from 'lucide-react';
 import { traceService } from '../services/traceService';
-import AgentMetricsCard from '../features/admin/AgentMetricsCard';
 import TraceTimeline from '../features/admin/TraceTimeline';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+// Sample/demo trace records are seeded server-side for prototype purposes and
+// are identifiable by this traceId prefix. They are not genuine user activity
+// and must never be shown in the end-user History & Logs view.
+const isSeededDemoTrace = (t) => typeof t?.traceId === 'string' && t.traceId.startsWith('tr_seed_');
+
 export default function HistoryPage() {
   const [traces, setTraces] = useState([]);
-  const [metrics, setMetrics] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,23 +33,17 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const [traceRes, metricRes] = await Promise.all([
-        traceService.getTraces({
-          sector: selectedSector !== 'All' ? selectedSector : undefined,
-          language: selectedLanguage !== 'ALL' ? selectedLanguage : undefined,
-          search: searchQuery || undefined
-        }),
-        traceService.getMetrics()
-      ]);
-      if (traceRes?.data) {
-        setTraces(traceRes.data);
-        if (!selectedTrace && traceRes.data.length > 0) {
-          setSelectedTrace(traceRes.data[0]);
-        }
-      }
-      if (metricRes?.data) {
-        setMetrics(metricRes.data);
-      }
+      const traceRes = await traceService.getTraces({
+        sector: selectedSector !== 'All' ? selectedSector : undefined,
+        language: selectedLanguage !== 'ALL' ? selectedLanguage : undefined,
+        search: searchQuery || undefined
+      });
+      const realTraces = (traceRes?.data || []).filter((t) => !isSeededDemoTrace(t));
+      setTraces(realTraces);
+      setSelectedTrace((prev) => {
+        if (prev && realTraces.some((t) => t.traceId === prev.traceId)) return prev;
+        return realTraces[0] || null;
+      });
     } catch (err) {
       console.error('Error fetching history:', err);
     } finally {
@@ -68,16 +65,16 @@ export default function HistoryPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">
-              Admin & Agent Trace Visualizer
+              Activity History & Audit Log
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-300 font-medium">
-              Phase 14 Active
+              Active
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time execution telemetry, subagent performance benchmarks, and regulatory compliance audit logs
+            Your marine safety queries and application activity
           </p>
         </div>
 
@@ -102,10 +99,7 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* Top Performance KPI Cards & Subagent Benchmarks */}
-      <AgentMetricsCard metrics={metrics} />
-
-      {/* Main Grid: Trace Log Table (7 Cols) + Selected Trace Timeline Visualizer (5 Cols) */}
+      {/* Main Grid: Trace Log Table (7 Cols) + Selected Activity Detail (5 Cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left 7 Cols: Trace History Log Table */}
         <div className="lg:col-span-7 space-y-3">
@@ -158,11 +152,16 @@ export default function HistoryPage() {
 
           {/* Trace Records Table */}
           <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
+            {traces.length === 0 ? (
+              <div className="p-10 text-center text-slate-500 text-xs space-y-1">
+                <p className="font-semibold text-slate-400">No activity yet</p>
+                <p>Your marine safety queries and application activity will appear here.</p>
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-900 text-slate-400 border-b border-slate-800 font-mono text-[10px] uppercase">
                   <tr>
-                    <th className="py-2.5 px-3">Trace ID</th>
                     <th className="py-2.5 px-3">User Query</th>
                     <th className="py-2.5 px-3">Sector</th>
                     <th className="py-2.5 px-3">Lang</th>
@@ -182,9 +181,6 @@ export default function HistoryPage() {
                           isSelected ? 'bg-ocean-950/60 border-l-2 border-ocean-500' : 'hover:bg-slate-900/60'
                         }`}
                       >
-                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 truncate max-w-[90px]">
-                          {t.traceId}
-                        </td>
                         <td className="py-2.5 px-3 text-slate-200 font-medium truncate max-w-[170px]">
                           {t.query}
                         </td>
@@ -214,7 +210,7 @@ export default function HistoryPage() {
                               setSelectedTrace(t);
                             }}
                             className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition"
-                            title="Inspect Timeline"
+                            title="View details"
                           >
                             <Eye className="w-3.5 h-3.5 text-ocean-400" />
                           </button>
@@ -225,6 +221,7 @@ export default function HistoryPage() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         </div>
 

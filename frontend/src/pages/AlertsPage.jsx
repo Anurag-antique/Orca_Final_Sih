@@ -10,6 +10,7 @@ import {
   Info
 } from 'lucide-react';
 import AlertFeed from '../features/alerts/AlertFeed';
+import StaleBadge from '../components/StaleBadge';
 
 export default function AlertsPage() {
   const [alertCount, setAlertCount] = useState(5);
@@ -19,13 +20,14 @@ export default function AlertsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">
               Safety Alerts & Emergency Operations Center
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-300 font-medium">
-              Phase 12 Broadcast Active
+              Broadcast Active
             </span>
+            <StaleBadge url="/alerts" params={{ sector: 'all', status: 'ACTIVE' }} />
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Proactive marine emergency alert dissemination in coordination with IMD, INCOIS, and Indian Coast Guard
