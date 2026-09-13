@@ -57,11 +57,7 @@ export default function RoutesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-<<<<<<< HEAD
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-=======
-            <h1 className="text-2xl font-bold text-white tracking-tight">
->>>>>>> upstream/main
               Lower-Risk Vessel Route Planner
             </h1>
             <span className="text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-medium">
@@ -104,7 +100,6 @@ export default function RoutesPage() {
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Mobile Tab Switcher (< lg screens) */}
       <div className="flex lg:hidden bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
         <button
@@ -138,13 +133,6 @@ export default function RoutesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* Map Column (Left 7 Cols on desktop, or toggled on mobile) */}
         <div className={`space-y-3 lg:col-span-7 ${mobileTab === 'map' ? 'block' : 'hidden lg:block'}`}>
-=======
-      {error && <ApiError error={error} onRetry={fetchLayers} />}
-
-      {/* Main Grid: Visual Leaflet Marine Map (7 Cols) + Route Planner Drawer (5 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 space-y-4">
->>>>>>> upstream/main
           <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-950">
             <MarineMap
               layersData={layersData}
@@ -158,14 +146,9 @@ export default function RoutesPage() {
             />
           </div>
 
-<<<<<<< HEAD
           {/* Quick Route Status Bar & Baseline Toggle */}
           <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
             <div className="flex items-center gap-3 flex-wrap">
-=======
-          <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
-            <div className="flex items-center gap-4 flex-wrap">
->>>>>>> upstream/main
               <span className="flex items-center gap-1.5 font-medium">
                 <span className="w-3 h-1 bg-cyan-400 inline-block shadow-sm shadow-cyan-400 rounded-full" />
                 <span className="text-cyan-200">Recommended Water Route (100% Safe)</span>
@@ -204,7 +187,6 @@ export default function RoutesPage() {
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* Planner Column (Right 5 Cols on desktop, or toggled on mobile) */}
         <div className={`space-y-4 lg:col-span-5 ${mobileTab === 'planner' ? 'block' : 'hidden lg:block'}`}>
           {/* Mobile Quick Action to Switch back to Map */}
@@ -217,9 +199,6 @@ export default function RoutesPage() {
             </button>
           </div>
 
-=======
-        <div className="lg:col-span-5 space-y-4">
->>>>>>> upstream/main
           <RoutePlanner
             onRouteGenerated={setCurrentPlan}
             currentPlan={currentPlan}

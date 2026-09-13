@@ -1,6 +1,6 @@
 const IntentAgent = require('./IntentAgent');
-const ToolSelectorAgent = require('./ToolSelectorAgent');
 const PlannerAgent = require('./PlannerAgent');
+const EvidenceReviewAgent = require('./EvidenceReviewAgent');
 const WeatherWorker = require('./workers/WeatherWorker');
 const OceanWorker = require('./workers/OceanWorker');
 const PFZWorker = require('./workers/PFZWorker');
@@ -15,8 +15,8 @@ const MemoryService = require('../services/memory.service');
 class AgentOrchestrator {
   constructor() {
     this.intentAgent = new IntentAgent();
-    this.toolSelectorAgent = new ToolSelectorAgent();
     this.plannerAgent = new PlannerAgent();
+    this.evidenceReviewAgent = new EvidenceReviewAgent();
     this.workers = {
       weather: new WeatherWorker(),
       ocean: new OceanWorker(),
@@ -46,7 +46,7 @@ class AgentOrchestrator {
       step: 1,
       agent: intentRes.agent,
       role: intentRes.role,
-      action: `Classified query into intent "${intentRes.output.primaryIntent}" (Language: ${intentRes.output.detectedLanguage.toUpperCase()}, Method: ${intentRes.output.classificationMethod}) for sector "${intentRes.output.targetSector}"`,
+      action: `Classified query into intent "${intentRes.output.primaryIntent}" (Language: ${intentRes.output.detectedLanguage.toUpperCase()}, Method: ${intentRes.output.classificationMethod}) for sector "${intentRes.output.targetSector}" | Tools: [${intentRes.output.requiredWorkers.join(', ') || 'none'}] (${intentRes.output.toolSelectionMethod})`,
       status: intentRes.success ? 'COMPLETED' : 'FAILED',
       durationMs: intentRes.durationMs,
       timestamp: intentRes.timestamp,
@@ -97,35 +97,15 @@ class AgentOrchestrator {
       };
     }
 
-    // 2. Autonomous Tool Selection — the LLM decides which data-gathering
-    // tools/workers are relevant to this specific query (function-calling),
-    // instead of a hardcoded intent -> worker lookup table.
-    const toolSelRes = await this.toolSelectorAgent.run({
-      message,
-      intentResult: intentRes.output,
-      history
-    });
-    intentRes.output.requiredWorkers = toolSelRes.output.selectedTools.length > 0
-      ? toolSelRes.output.selectedTools
-      : intentRes.output.requiredWorkers; // keep original map as a last-resort floor if the model selected nothing unexpectedly
-
-    trace.push({
-      step: 2,
-      agent: toolSelRes.agent,
-      role: toolSelRes.role,
-      action: `Autonomously selected tools [${toolSelRes.output.selectedTools.join(', ') || 'none'}] (Method: ${toolSelRes.output.selectionMethod})`,
-      status: toolSelRes.success ? 'COMPLETED' : 'FAILED',
-      durationMs: toolSelRes.durationMs,
-      timestamp: toolSelRes.timestamp
-    });
-
-    // 3. Planning DAG Scheduler
+    // 2. Planning DAG Scheduler (tool selection already folded into step 1's
+    // classification call above — same LLM response now decides both intent
+    // and which data sources are needed, saving one full round-trip per query)
     const planRes = await this.plannerAgent.run({
       intentResult: intentRes.output,
       location
     });
     trace.push({
-      step: 3,
+      step: 2,
       agent: planRes.agent,
       role: planRes.role,
       action: `Constructed multi-agent execution DAG with ${planRes.output.tasks.length} parallel worker tasks`,
@@ -154,7 +134,7 @@ class AgentOrchestrator {
     const workerEntries = await Promise.all(workerTasks);
     const workerResults = Object.fromEntries(workerEntries);
 
-    let workerStepIndex = 4;
+    let workerStepIndex = 3;
     for (const [domain, res] of Object.entries(workerResults)) {
       trace.push({
         step: workerStepIndex++,
@@ -170,7 +150,7 @@ class AgentOrchestrator {
     }
 
     // 4. Evidence Aggregation & Normalization
-    const aggRes = await this.aggregatorAgent.run({ workerResults });
+    let aggRes = await this.aggregatorAgent.run({ workerResults });
     trace.push({
       step: workerStepIndex++,
       agent: aggRes.agent,
@@ -181,12 +161,78 @@ class AgentOrchestrator {
       timestamp: aggRes.timestamp
     });
 
+    // 4b. Observe-Act-Observe loop: the model reviews what it actually
+    // gathered (not just what it planned to gather) and can request genuinely
+    // new tools if it spots a real gap. Skipped for lightweight intents to
+    // control latency/token cost, and capped at one extra round-trip so this
+    // can never loop indefinitely.
+    if (!intentRes.output.isLightweight) {
+      const alreadyFetched = Object.fromEntries(
+        Object.entries(workerResults).map(([domain, res]) => [domain, res.success ? 'success' : 'degraded'])
+      );
+
+      const reviewRes = await this.evidenceReviewAgent.run({
+        message,
+        intentResult: intentRes.output,
+        alreadyFetched
+      });
+
+      trace.push({
+        step: workerStepIndex++,
+        agent: reviewRes.agent,
+        role: reviewRes.role,
+        action: reviewRes.output.sufficient
+          ? `Reviewed gathered evidence — sufficient to proceed (${reviewRes.output.method})`
+          : `Reviewed gathered evidence — gap found, fetching additional tools [${reviewRes.output.additionalTools.join(', ')}] (${reviewRes.output.method}): ${reviewRes.output.reason}`,
+        status: reviewRes.success ? 'COMPLETED' : 'FAILED',
+        durationMs: reviewRes.durationMs,
+        timestamp: reviewRes.timestamp
+      });
+
+      if (!reviewRes.output.sufficient && reviewRes.output.additionalTools.length > 0) {
+        const additionalTasks = reviewRes.output.additionalTools.map(async (domain) => {
+          const worker = this.workers[domain];
+          if (!worker) return [domain, { success: false, error: `Worker ${domain} not found` }];
+          const res = await worker.run({ location: targetLocation });
+          return [domain, res];
+        });
+
+        const additionalEntries = await Promise.all(additionalTasks);
+        for (const [domain, res] of additionalEntries) {
+          workerResults[domain] = res;
+          trace.push({
+            step: workerStepIndex++,
+            agent: res.agent || `${domain}Worker`,
+            role: res.role || `${domain} Telemetry Collection`,
+            action: res.success
+              ? `(Loop 2) Successfully retrieved ${domain} telemetry from provider`
+              : `(Loop 2) Fallback active for ${domain}: ${res.error}`,
+            status: res.success ? 'COMPLETED' : 'DEGRADED',
+            durationMs: res.durationMs || 0,
+            timestamp: res.timestamp || new Date().toISOString()
+          });
+        }
+
+        // Re-aggregate with the combined worker results
+        aggRes = await this.aggregatorAgent.run({ workerResults });
+        trace.push({
+          step: workerStepIndex++,
+          agent: aggRes.agent,
+          role: aggRes.role,
+          action: `Re-aggregated evidence after Loop 2 (${aggRes.output.totalEvidencePoints} total points)`,
+          status: aggRes.success ? 'COMPLETED' : 'FAILED',
+          durationMs: aggRes.durationMs,
+          timestamp: aggRes.timestamp
+        });
+      }
+    }
+
     // 5. Deterministic Risk Assessment Rule Evaluation
     const riskAssessment = RiskAssessmentEngine.evaluate({
       weather: aggRes.output.evidence.weather || {},
       ocean: aggRes.output.evidence.ocean || {},
       advisory: aggRes.output.evidence.advisory || {},
-      geospatial: aggRes.output.evidence.geospatial || {},
+      geospatial: aggRes.output.evidence.geofence || {},
       vesselProfile: vesselProfile || {}
     });
 

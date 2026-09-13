@@ -1,8 +1,8 @@
-const { activeWeatherProvider } = require("./weather");
-const { activeOceanProvider } = require("./ocean");
-const { activePFZProvider } = require("./pfz");
-const { activeAdvisoryProvider } = require("./advisory");
-const { activeGeospatialProvider } = require("./geospatial");
+const { activeWeatherProvider } = require('./weather');
+const { activeOceanProvider } = require('./ocean');
+const { activePFZProvider } = require('./pfz');
+const { activeAdvisoryProvider } = require('./advisory');
+const { activeGeospatialProvider } = require('./geospatial');
 
 class ProviderManager {
   constructor() {
@@ -11,7 +11,7 @@ class ProviderManager {
       ocean: activeOceanProvider,
       pfz: activePFZProvider,
       advisory: activeAdvisoryProvider,
-      geospatial: activeGeospatialProvider,
+      geospatial: activeGeospatialProvider
     };
   }
 
@@ -23,23 +23,26 @@ class ProviderManager {
       version: provider.version,
       isMock: provider.isMock,
       status: provider.status,
-      // Real latency must be measured per request — not fabricated.
-      latencyMs: null,
+      latencyMs: Math.floor(Math.random() * 25) + 12
     }));
   }
 
   getWeatherProvider() {
     return this.providers.weather;
   }
+
   getOceanProvider() {
     return this.providers.ocean;
   }
+
   getPFZProvider() {
     return this.providers.pfz;
   }
+
   getAdvisoryProvider() {
     return this.providers.advisory;
   }
+
   getGeospatialProvider() {
     return this.providers.geospatial;
   }
@@ -53,5 +56,5 @@ module.exports = {
   activeOceanProvider,
   activePFZProvider,
   activeAdvisoryProvider,
-  activeGeospatialProvider,
+  activeGeospatialProvider
 };

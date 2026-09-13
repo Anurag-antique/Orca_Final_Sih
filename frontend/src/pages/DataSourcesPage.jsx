@@ -91,10 +91,10 @@ export default function DataSourcesPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">Data Provider Architecture</h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
-              Phase 4 Active
+              Active
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -184,7 +184,7 @@ export default function DataSourcesPage() {
                       {provider.name}
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                      <span>Mode: <strong className="text-amber-400 font-mono">{provider.isMock ? 'Mock Model (Demo)' : 'Live Feed'}</strong></span>
+                      <span>Mode: <strong className="text-amber-400 font-mono">{provider.isMock ? 'Demo Data' : 'Live Feed'}</strong></span>
                       <span>Latency: <strong className="text-tealAccent-400 font-mono">{provider.latencyMs}ms</strong></span>
                     </div>
                   </div>

@@ -7,7 +7,6 @@ import MapPage from './pages/MapPage';
 import RoutesPage from './pages/RoutesPage';
 import AlertsPage from './pages/AlertsPage';
 import PFZPage from './pages/PFZPage';
-import DataSourcesPage from './pages/DataSourcesPage';
 import ChatPage from './pages/ChatPage';
 import HistoryPage from './pages/HistoryPage';
 import LoginPage from './pages/LoginPage';
@@ -32,28 +31,33 @@ export default function App() {
 
   useEffect(() => {
     let isMounted = true;
+
     const probeBackendHealth = async () => {
       try {
         const response = await checkHealth();
-        if (isMounted)
+        if (isMounted) {
           setApiStatus({
             connected: true,
             loading: false,
             data: response,
             error: null,
           });
+        }
       } catch (err) {
-        if (isMounted)
+        if (isMounted) {
           setApiStatus({
             connected: false,
             loading: false,
             data: null,
             error: err.message,
           });
+        }
       }
     };
+
     probeBackendHealth();
     const interval = setInterval(probeBackendHealth, 15000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -75,7 +79,6 @@ export default function App() {
                     <Route path="/routes" element={<RoutesPage />} />
                     <Route path="/alerts" element={<AlertsPage />} />
                     <Route path="/pfz" element={<PFZPage />} />
-                    <Route path="/sources" element={<DataSourcesPage />} />
                     <Route path="/history" element={<HistoryPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
