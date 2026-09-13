@@ -1,13 +1,14 @@
 const RoutePlanningService = require('../services/route.service');
 
-const planRoute = (req, res, next) => {
+const planRoute = async (req, res, next) => {
   try {
-    const { origin, destination, vesselProfile, cruisingSpeedKnots } = req.body;
-    const routePlan = RoutePlanningService.planRoute({
+    const { origin, destination, vesselProfile, cruisingSpeedKnots, liveLocation } = req.body;
+    const routePlan = await RoutePlanningService.planRoute({
       origin,
       destination,
       vesselProfile,
-      cruisingSpeedKnots
+      cruisingSpeedKnots,
+      liveLocation
     });
 
     return res.status(200).json({
@@ -32,7 +33,17 @@ const getHarborsAndDestinations = (req, res) => {
   });
 };
 
+const getRouteTemplates = (req, res) => {
+  const templates = RoutePlanningService.getRouteTemplates();
+
+  return res.status(200).json({
+    success: true,
+    data: templates
+  });
+};
+
 module.exports = {
   planRoute,
-  getHarborsAndDestinations
+  getHarborsAndDestinations,
+  getRouteTemplates
 };
