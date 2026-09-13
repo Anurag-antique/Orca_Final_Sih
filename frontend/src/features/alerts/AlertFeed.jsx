@@ -121,7 +121,7 @@ export default function AlertFeed({ onAlertChange }) {
         <div className="flex items-center justify-between">
           <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5 uppercase tracking-wider">
             <Radio className="w-4 h-4 text-rose-400 animate-pulse" />
-            <span>Emergency Alert Broadcast Simulator (1-Click Judge Triggers):</span>
+            <span>Emergency Alert Broadcast Simulator (1-Click Demo):</span>
           </span>
           <span className="text-[10px] font-mono text-slate-500">Live Broadcast Network</span>
         </div>

@@ -60,8 +60,8 @@ export default function AgentTraceViewer({ trace = [], totalExecutionTimeMs = 0,
       {isOpen && (
         <div className="p-3.5 space-y-3 bg-slate-950">
           {/* Subagent Tab Navigation */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setActiveTab('trace')}
                 className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
@@ -97,7 +97,7 @@ export default function AgentTraceViewer({ trace = [], totalExecutionTimeMs = 0,
             </div>
 
             <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">
-              Phase 7 Orchestrator
+              Orchestrator
             </span>
           </div>
 

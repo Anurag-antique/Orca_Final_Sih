@@ -55,7 +55,7 @@ export default function RoutesPage() {
               Lower-Risk Vessel Route Planner
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-medium">
-              Phase 11 Active
+              Active
             </span>
             <StaleBadge
               url={`/map/layers?sector=${encodeURIComponent(selectedSector)}`}

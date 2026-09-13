@@ -7,10 +7,10 @@ import {
   Compass,
   BellRing,
   Navigation,
-  Database,
   History,
   User,
-  Radio
+  Radio,
+  X
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../hooks/useAuth';
@@ -24,19 +24,44 @@ const navItems = [
   { name: 'Route Planner', path: '/routes', icon: Navigation, ready: true },
   { name: 'Safety & Alerts', path: '/alerts', icon: BellRing, ready: true },
   { name: 'PFZ Intelligence', path: '/pfz', icon: Compass, ready: true },
-  { name: 'Data Sources', path: '/sources', icon: Database, ready: true },
   { name: 'History & Logs', path: '/history', icon: History, ready: true },
   { name: 'Operator Profile', path: '/profile', icon: User, ready: true },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const { isAuthenticated, user } = useAuth();
 
   return (
-    <aside className="w-64 border-r border-slate-800/80 bg-slate-950 flex flex-col justify-between p-4 hidden md:flex">
-      <div className="space-y-6">
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-slate-800/80 bg-slate-950 flex flex-col justify-between p-4 transition-transform duration-200 ease-in-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 md:flex md:h-auto`}
+      >
+      <div className="space-y-6 overflow-y-auto">
+        <div className="flex items-center justify-between px-3 md:hidden">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+            Navigation
+          </span>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
         <div>
-          <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 px-3">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 px-3 hidden md:block">
             Marine Operations
           </span>
           <nav className="mt-2 space-y-1">
@@ -44,7 +69,10 @@ export default function Sidebar() {
               <NavLink
                 key={item.name}
                 to={item.ready ? item.path : '#'}
-                onClick={(e) => !item.ready && e.preventDefault()}
+                onClick={(e) => {
+                  if (!item.ready) { e.preventDefault(); return; }
+                  onClose();
+                }}
                 className={({ isActive }) =>
                   clsx(
                     'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
@@ -79,12 +107,13 @@ export default function Sidebar() {
       <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
         <div className="flex items-center gap-2 mb-1.5">
           <Radio className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-          <span className="text-xs font-semibold text-slate-300">Phase 14: Trace Visualizer</span>
+          <span className="text-xs font-semibold text-slate-300">System Monitoring</span>
         </div>
         <p className="text-[11px] text-slate-400 leading-relaxed">
           {isAuthenticated ? `Operator: ${user?.name || 'Authorized'}` : 'Audit logging active.'}
         </p>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

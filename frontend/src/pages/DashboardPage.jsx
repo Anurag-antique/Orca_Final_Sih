@@ -67,7 +67,7 @@ export default function DashboardPage({ apiStatus }) {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">Marine Operations Dashboard</h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
-              Phase 8 Risk Engine
+              Risk Engine Active
             </span>
             <StaleBadge
               url={`/dashboard?sector=${encodeURIComponent(selectedSector)}`}
@@ -164,7 +164,7 @@ export default function DashboardPage({ apiStatus }) {
                 ? 'bg-amber-950 border-amber-800 text-amber-300'
                 : 'bg-teal-950 border-teal-800 text-teal-300'
             }`}>
-              {telemetry?.weather?.isFallback ? 'Fallback Model' : 'Live Open-Meteo'}
+              {telemetry?.weather?.isFallback ? 'Estimated (Backup Source)' : 'Live'}
             </span>
           </div>
           <div>
@@ -184,7 +184,7 @@ export default function DashboardPage({ apiStatus }) {
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
             <span>Cyclone: {telemetry?.weather?.cycloneAlert || 'None'}</span>
             <span className="truncate max-w-[110px]" title={telemetry?.weather?.sourceOrigin}>
-              {telemetry?.weather?.isFallback ? 'Mock Model' : 'Live Feed'}
+              {telemetry?.weather?.isFallback ? 'Estimated Data' : 'Live Feed'}
             </span>
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function DashboardPage({ apiStatus }) {
                 <h2 className="font-bold text-slate-100">AI Marine Assistant</h2>
               </div>
               <span className="text-xs font-mono px-2 py-1 rounded bg-slate-800 text-slate-300">
-                Phase 6 & 7
+                Active
               </span>
             </div>
 

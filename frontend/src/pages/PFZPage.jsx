@@ -77,7 +77,7 @@ export default function PFZPage() {
               PFZ Intelligence & Pelagic Zones
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
-              Phase 5 Satellite Integration
+              Satellite Integration Active
             </span>
             <StaleBadge
               url={`/pfz?lat=${selectedSector.lat}&lon=${selectedSector.lon}`}
@@ -246,7 +246,6 @@ export default function PFZPage() {
                     <ShieldCheck className="w-3.5 h-3.5 text-tealAccent-400" />
                     <span>Decision Support: Potentially Favourable Zone (No catch guarantee)</span>
                   </span>
-                  <span>ID: {zone.id}</span>
                 </div>
               </div>
             ))
