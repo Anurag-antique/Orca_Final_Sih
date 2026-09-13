@@ -112,7 +112,7 @@ export default function GeofenceMonitor({ onLocationChange, onSimulation }) {
       {/* 1-Click Interactive Breach Simulation Buttons (Crucial for SIH Hackathon Judges) */}
       <div className="space-y-2">
         <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">
-          SIH Live Simulation Trigger (1-Click Demonstration):
+          Live Simulation Trigger (1-Click Demonstration):
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button

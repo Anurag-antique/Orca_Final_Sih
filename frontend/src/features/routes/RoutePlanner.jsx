@@ -101,7 +101,7 @@ export default function RoutePlanner({ onRouteGenerated, currentPlan }) {
           <div className="flex items-center gap-2">
             <StaleBadge url="/routes/waypoints" params={{}} />
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">
-              Phase 11 Active
+              Active
             </span>
           </div>
         </div>

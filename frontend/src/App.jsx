@@ -7,7 +7,6 @@ import MapPage from './pages/MapPage';
 import RoutesPage from './pages/RoutesPage';
 import AlertsPage from './pages/AlertsPage';
 import PFZPage from './pages/PFZPage';
-import DataSourcesPage from './pages/DataSourcesPage';
 import ChatPage from './pages/ChatPage';
 import HistoryPage from './pages/HistoryPage';
 import LoginPage from './pages/LoginPage';
@@ -80,7 +79,6 @@ export default function App() {
                     <Route path="/routes" element={<RoutesPage />} />
                     <Route path="/alerts" element={<AlertsPage />} />
                     <Route path="/pfz" element={<PFZPage />} />
-                    <Route path="/sources" element={<DataSourcesPage />} />
                     <Route path="/history" element={<HistoryPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />

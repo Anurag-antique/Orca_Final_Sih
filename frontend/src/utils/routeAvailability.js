@@ -9,7 +9,6 @@ export const ROUTE_AVAILABILITY = {
   '/routes':    'online',   // plan route POST is online-only
   '/alerts':    'cached',
   '/pfz':       'cached',
-  '/sources':   'cached',
   '/history':   'online',   // traces/export, potentially private
   '/chat':      'online',   // chat POST is online-only
   '/profile':   'online',   // /auth/me never cached

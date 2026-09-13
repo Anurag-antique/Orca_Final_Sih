@@ -24,7 +24,7 @@ export default function ChatPage() {
               AI Marine Assistant
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 font-medium">
-              Phase 6 Active
+              Active
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -98,14 +98,6 @@ export default function ChatPage() {
                 <span className="font-semibold font-mono">Wave &gt; 2.2m &bull; Wind &gt; 35 km/h</span>
               </div>
             </div>
-          </div>
-
-          {/* SIH Hackathon Notice */}
-          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-500 space-y-1">
-            <div className="font-semibold text-slate-300">Hackathon Reviewer Note:</div>
-            <p>
-              Inspect the <strong>"Agentic Thought & Execution Trace"</strong> dropdown in any AI response to view real-time latency, subagent roles, and the verified evidence payload.
-            </p>
           </div>
         </div>
       </div>

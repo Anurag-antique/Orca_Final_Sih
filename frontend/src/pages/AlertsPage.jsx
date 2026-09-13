@@ -25,7 +25,7 @@ export default function AlertsPage() {
               Safety Alerts & Emergency Operations Center
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-800 text-rose-300 font-medium">
-              Phase 12 Broadcast Active
+              Broadcast Active
             </span>
             <StaleBadge url="/alerts" params={{ sector: 'all', status: 'ACTIVE' }} />
           </div>
