@@ -2,16 +2,15 @@ const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
 const config = require("../config");
 
-if (!config.databaseUrl) {
-  console.error("[Migration] Missing DATABASE_URL in environment.");
-  process.exit(1);
-}
-
-/**
- * Automatically creates the users table, indexes, updated_at trigger,
- * and RLS policy. Safe to run on every boot (idempotent).
- */
+// NOTE: intentionally no top-level process.exit() here — a missing
+// DATABASE_URL should degrade gracefully (server.js's start() already
+// wraps migrations in a try/catch and just skips them with a warning),
+// not kill the entire process before that safety net ever runs.
 async function runMigrations() {
+  if (!config.databaseUrl) {
+    throw new Error('Missing DATABASE_URL in environment — skipping migrations.');
+  }
+
   const pool = new Pool({
     connectionString: config.databaseUrl,
     ssl: { rejectUnauthorized: false },
@@ -95,6 +94,10 @@ async function runMigrations() {
  * Skips silently if user already present.
  */
 async function seedDemoUser() {
+  if (!config.databaseUrl) {
+    throw new Error('Missing DATABASE_URL in environment — skipping demo user seed.');
+  }
+
   const pool = new Pool({
     connectionString: config.databaseUrl,
     ssl: { rejectUnauthorized: false },
