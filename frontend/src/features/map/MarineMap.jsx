@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -6,6 +6,7 @@ import {
   Marker,
   Popup,
   Polyline,
+  Circle,
   LayersControl,
   useMap,
   useMapEvents,
@@ -28,8 +29,6 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
-
-
 
 const GIS_LAYERS = [
   ["pfz", "PFZ Pelagic Zones", "#34d399", "#10b981"],
@@ -63,12 +62,17 @@ const createCustomIcon = (colorBg, symbol) =>
     iconAnchor: [11, 11],
   });
 
-const createVesselIcon = (color) =>
+const createLiveGpsIcon = () =>
   L.divIcon({
-    className: "custom-leaflet-vessel",
-    html: `<div style="background-color:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.6);"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    className: "live-gps-icon",
+    html: `
+      <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #06b6d4; opacity: 0.5; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="position: relative; background: #0891b2; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold;">📍</div>
+      </div>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 
 /* ------------------------------------------------------------------ */
@@ -128,17 +132,7 @@ function MapView({
     );
   }, [map, followUser, userLocation?.lat, userLocation?.lon]);
 
-  // Simulation (existing behaviour, preserved).
-
-function MapView({ center, simulation, layersData, onPointSelect }) {
-  const map = useMap();
-  useMapEvents({ click: event => {
-    const point = event.latlng.wrap();
-    map.flyTo(point, Math.max(map.getZoom(), 11), { duration: 0.45 });
-    onPointSelect?.({ lat: point.lat, lon: point.lng });
-  } });
-  useEffect(() => { map.setView(center, 8); }, [map, center]);
-  
+  // Simulation focus (existing behaviour, preserved).
   useEffect(() => {
     map.closePopup();
     if (!simulation) return;
@@ -147,6 +141,7 @@ function MapView({ center, simulation, layersData, onPointSelect }) {
     const points = [[position.lat, position.lon], ...zones.flatMap(zone => zone.coordinates || zone.lineCoordinates || [])];
     map.fitBounds(points, { padding: [45, 45], maxZoom: zones.length ? 10 : 8 });
   }, [map, simulation]);
+
   // Fit to origin + destination + route when present.
   useEffect(() => {
     const points = [];
@@ -156,26 +151,15 @@ function MapView({ center, simulation, layersData, onPointSelect }) {
       points.push(...routeGeometry);
     if (points.length < 2) return;
     map.fitBounds(points, { padding: [50, 50], maxZoom: 11 });
-  }, [
-    map,
-    origin?.lat,
-    origin?.lon,
-    destination?.lat,
-    destination?.lon,
-    routeGeometry,
-  ]);
+  }, [map, origin?.lat, origin?.lon, destination?.lat, destination?.lon, routeGeometry]);
 
   // Fit to GIS layer collection when there is nothing else to focus on.
-
   useEffect(() => {
     const collection = layersData?.features ? layersData : layersData?.pfz;
-    if (simulation || !collection?.features?.length) return;
+    if (simulation || origin || destination || !collection?.features?.length) return;
     const bounds = L.geoJSON(collection).getBounds();
     if (bounds.isValid()) map.fitBounds(bounds.pad(0.2), { maxZoom: 8 });
   }, [map, layersData, simulation, origin, destination]);
-
-
-  }, [map, layersData, simulation]);
 
   return null;
 }
@@ -212,37 +196,6 @@ function bindMetadata(feature, layer) {
   layer.bindPopup(content, { maxHeight: 240 });
 }
 
-const SECTOR_CENTERS = {
-  "Mumbai Coast": [18.922, 72.8347],
-  "Kochi Harbor": [9.9312, 76.2673],
-  "Chennai Offshore": [13.0827, 80.2707],
-  Visakhapatnam: [17.6868, 83.2185],
-  Porbandar: [21.6417, 69.6293],
-};
-
-const createCustomIcon = (colorBg, symbol) => {
-  return L.divIcon({
-    className: "custom-leaflet-icon",
-    html: `<div style="background-color: ${colorBg}; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.5); font-size: 11px; font-weight: bold; color: white;">${symbol}</div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
-};
-
-const createLiveGpsIcon = () => {
-  return L.divIcon({
-    className: "live-gps-icon",
-    html: `
-      <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
-        <span style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #06b6d4; opacity: 0.5; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <div style="position: relative; background: #0891b2; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold;">📍</div>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-  });
-};
-
 export default function MarineMap({
   layersData,
   selectedSector = "Mumbai Coast",
@@ -258,10 +211,16 @@ export default function MarineMap({
   showDemoLayers = true,
   visibleLayers = GIS_LAYERS.map(([key]) => key),
   showOfficialLayers = false,
+  onMapPick,
+  selectionMode = null,
+  userLocation = null,
+  followUser = false,
+  origin = null,
+  destination = null,
+  routeGeometry = null,
+  routeError = null,
 }) {
   const [legendOpen, setLegendOpen] = useState(false);
-
-  // When following the user, prefer user location as map center.
 
   const center =
     SECTOR_CENTERS[selectedSector] || SECTOR_CENTERS["Mumbai Coast"];
@@ -326,6 +285,11 @@ export default function MarineMap({
         style={{ height: "100%", width: "100%", background: "#020617" }}
         zoomControl={!compact}
       >
+        <MapView
+          center={center}
+          simulation={simulation}
+          layersData={layersData}
+          onPointSelect={onPointSelect}
           onMapPick={onMapPick}
           selectionMode={selectionMode}
           userLocation={userLocation}
@@ -334,8 +298,7 @@ export default function MarineMap({
           destination={destination}
           routeGeometry={routeGeometry}
         />
-         <MapView center={center} simulation={simulation} layersData={layersData} onPointSelect={onPointSelect} />
-         <ResizeMap />
+        <ResizeMap />
         <BaseTiles />
         {visibleLayers.length > 0 && <LayersControl position="topright">
           {GIS_LAYERS.filter(([key]) => visibleLayers.includes(key)).map(([key, name, color, fillColor]) => (
@@ -368,22 +331,6 @@ export default function MarineMap({
           />
         )}
 
-        {showDemoLayers && simulation?.vesselPosition && <Marker position={[simulation.vesselPosition.lat, simulation.vesselPosition.lon]} icon={createCustomIcon("#0f172a", "S")}>
-          <Popup>Simulated vessel: {simulation.status.replaceAll("_", " ")}<br />{simulation.vesselPosition.lat}, {simulation.vesselPosition.lon}</Popup>
-        </Marker>}
-
-        {showDemoLayers && simulation?.vesselPosition && <Marker position={[simulation.vesselPosition.lat, simulation.vesselPosition.lon]} icon={createCustomIcon("#0f172a", "S")}>
-          <Popup>Simulated vessel: {simulation.status.replaceAll("_", " ")}<br />{simulation.vesselPosition.lat}, {simulation.vesselPosition.lon}</Popup>
-        </Marker>}
-        {safety?.point && <CircleMarker center={[safety.point.lat, safety.point.lon]} radius={18}
-          pathOptions={{ color: safety.color || "#64748b", fillColor: safety.color || "#64748b", fillOpacity: 0.45, weight: 4, dashArray: "3 4" }}>
-          <Popup>Weather safety: {safety.risk ? (safety.risk.riskLevel === "LOW" ? "LOW" : safety.risk.riskLevel === "MODERATE" ? "MODERATE" : "CRITICAL") : (safety.error ? "Unavailable" : "Loading")}<br />
-            {safety.risk && <>Air temperature: {safety.weather.data.temperatureC == null ? "Unavailable" : `${safety.weather.data.temperatureC}°C`}<br />Wind: {safety.weather.data.windSpeedKmh} km/h · Waves: {safety.ocean.data.significantWaveHeightM} m</>}
-          </Popup>
-        </CircleMarker>}
-
-        {/* Direct Baseline Path (Unoptimized) Overlay - OFF by default as straight-line cuts land */}
-        {showDirectBaseline && routePlan?.directBaselineRoute?.coordinates && (
         {/* Simulation vessel (existing, only when showDemoLayers) */}
         {showDemoLayers && simulation?.vesselPosition && (
           <Marker
@@ -488,7 +435,7 @@ export default function MarineMap({
           </>
         )}
 
-        {/* Origin marker */}
+        {/* Origin marker (Phase 1 generic picker — separate from routePlan.origin below) */}
         {origin && (
           <Marker
             position={[origin.lat, origin.lon]}
@@ -505,7 +452,7 @@ export default function MarineMap({
           </Marker>
         )}
 
-        {/* Destination marker */}
+        {/* Destination marker (Phase 1 generic picker) */}
         {destination && (
           <Marker
             position={[destination.lat, destination.lon]}
@@ -522,7 +469,7 @@ export default function MarineMap({
           </Marker>
         )}
 
-        {/* Real maritime route */}
+        {/* Real maritime route (Phase 1 generic route geometry) */}
         {Array.isArray(routeGeometry) && routeGeometry.length > 1 && (
           <Polyline
             positions={routeGeometry}
@@ -548,9 +495,9 @@ export default function MarineMap({
 
         {/* -------------------- End Phase 1 -------------------- */}
 
-        {/* Existing route plan overlays (Phase 11) */}
-        {/* Route Planning Polyline Overlays (Phase 11) */}
-        {routePlan?.directBaselineRoute?.coordinates && (
+        {/* Direct Baseline Path (Unoptimized) Overlay — only shown when toggled on,
+            since a straight line often cuts across land/hazards and is for comparison only */}
+        {showDirectBaseline && routePlan?.directBaselineRoute?.coordinates && (
            <Polyline
             positions={routePlan.directBaselineRoute.coordinates}
             pathOptions={{
@@ -588,7 +535,6 @@ export default function MarineMap({
               <div className="text-xs text-slate-900 font-sans">
                 <strong style={{ color: "#0891b2" }}>
                   Lower-Risk Route Recommendation (100% Sea Lane)
-                  Lower-Risk Route Recommendation
                  </strong>
                 <br />
                 Distance: <strong>{routePlan.lowerRiskProposedRoute.totalDistanceNm} NM</strong>
@@ -633,8 +579,7 @@ export default function MarineMap({
         ))}
 
         {/* Departure Origin Marker (Live GPS Radar vs Harbor Anchor) */}
-         {/* Waypoint Markers for Route */}
-         {routePlan?.origin?.coordinates && (
+        {routePlan?.origin?.coordinates && (
           <Marker
             position={routePlan.origin.coordinates}
             icon={routePlan.origin.isLive ? createLiveGpsIcon() : createCustomIcon("#10b981", "⚓")}
@@ -699,7 +644,6 @@ export default function MarineMap({
             </div>
 
             <div className="space-y-2 text-[11px]">
-              {/* Recommended Route */}
               <div className="flex items-start gap-2">
                 <div className="w-4 h-1 bg-cyan-400 mt-1.5 rounded-full shrink-0 shadow-sm shadow-cyan-400" />
                 <div>
@@ -708,7 +652,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Waypoints */}
               <div className="flex items-start gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 border border-white mt-1 shrink-0" />
                 <div>
@@ -717,7 +660,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Live GPS */}
               <div className="flex items-start gap-2">
                 <span className="text-xs shrink-0">📍</span>
                 <div>
@@ -726,7 +668,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Harbors & Destinations */}
               <div className="flex items-start gap-2">
                 <span className="text-xs shrink-0">⚓ / 🎯</span>
                 <div>
@@ -735,7 +676,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* PFZ Zones */}
               <div className="flex items-start gap-2">
                 <div className="w-3.5 h-3 rounded bg-emerald-500/40 border border-emerald-400 mt-0.5 shrink-0" />
                 <div>
@@ -744,7 +684,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Military Restricted */}
               <div className="flex items-start gap-2">
                 <div className="w-3.5 h-3 rounded bg-rose-500/30 border border-rose-500 border-dashed mt-0.5 shrink-0" />
                 <div>
@@ -753,7 +692,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Submerged Hazards */}
               <div className="flex items-start gap-2">
                 <div className="w-3.5 h-3 rounded bg-amber-500/35 border border-amber-400 mt-0.5 shrink-0" />
                 <div>
@@ -762,7 +700,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* IMBL */}
               <div className="flex items-start gap-2">
                 <div className="w-4 h-0.5 border-t-2 border-red-500 border-dashed mt-1.5 shrink-0" />
                 <div>
@@ -771,7 +708,6 @@ export default function MarineMap({
                 </div>
               </div>
 
-              {/* Baseline Path Toggle */}
               {onToggleDirectBaseline && (
                 <div className="pt-2 border-t border-slate-800">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
