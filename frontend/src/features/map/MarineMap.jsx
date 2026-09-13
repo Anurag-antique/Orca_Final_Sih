@@ -39,14 +39,21 @@ const OFFICIAL_LAYERS = [
   { key: "bathymetry", name: "INCOIS Bathymetry", url: `${INCOIS_WMS}/PFZ_Bathymetry/wms`, layers: "PFZ_Bathymetry:bathymetry" },
 ];
 
-function MapView({ center, simulation, layersData, onPointSelect }) {
+function MapView({ center, simulation, layersData, onPointSelect, routePlan }) {
   const map = useMap();
-  useMapEvents({ click: event => {
-    const point = event.latlng.wrap();
-    map.flyTo(point, Math.max(map.getZoom(), 11), { duration: 0.45 });
-    onPointSelect?.({ lat: point.lat, lon: point.lng });
-  } });
-  useEffect(() => { map.setView(center, 8); }, [map, center]);
+
+  useMapEvents({
+    click: event => {
+      const point = event.latlng.wrap();
+      map.flyTo(point, Math.max(map.getZoom(), 11), { duration: 0.45 });
+      onPointSelect?.({ lat: point.lat, lon: point.lng });
+    }
+  });
+
+  useEffect(() => {
+    map.setView(center, 8);
+  }, [map, center]);
+
   useEffect(() => {
     map.closePopup();
     if (!simulation) return;
@@ -55,12 +62,31 @@ function MapView({ center, simulation, layersData, onPointSelect }) {
     const points = [[position.lat, position.lon], ...zones.flatMap(zone => zone.coordinates || zone.lineCoordinates || [])];
     map.fitBounds(points, { padding: [45, 45], maxZoom: zones.length ? 10 : 8 });
   }, [map, simulation]);
+
   useEffect(() => {
     const collection = layersData?.features ? layersData : layersData?.pfz;
     if (simulation || !collection?.features?.length) return;
     const bounds = L.geoJSON(collection).getBounds();
     if (bounds.isValid()) map.fitBounds(bounds.pad(0.2), { maxZoom: 8 });
   }, [map, layersData, simulation]);
+
+  // Auto-frame route when generated
+  useEffect(() => {
+    if (!routePlan) return;
+    const coords = [];
+    if (routePlan.origin?.coordinates) coords.push(routePlan.origin.coordinates);
+    if (routePlan.destination?.coordinates) coords.push(routePlan.destination.coordinates);
+    if (routePlan.lowerRiskProposedRoute?.coordinates?.length) {
+      coords.push(...routePlan.lowerRiskProposedRoute.coordinates);
+    }
+    if (coords.length > 1) {
+      const bounds = L.latLngBounds(coords);
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.18), { maxZoom: 10 });
+      }
+    }
+  }, [map, routePlan]);
+
   return null;
 }
 
@@ -112,6 +138,20 @@ const createCustomIcon = (colorBg, symbol) => {
     html: `<div style="background-color: ${colorBg}; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.5); font-size: 11px; font-weight: bold; color: white;">${symbol}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
+  });
+};
+
+const createLiveGpsIcon = () => {
+  return L.divIcon({
+    className: "live-gps-icon",
+    html: `
+      <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #06b6d4; opacity: 0.5; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="position: relative; background: #0891b2; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold;">📍</div>
+      </div>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 };
 
@@ -192,7 +232,7 @@ export default function MarineMap({
         style={{ height: "100%", width: "100%", background: "#020617" }}
         zoomControl={!compact}
       >
-        <MapView center={center} simulation={simulation} layersData={layersData} onPointSelect={onPointSelect} />
+        <MapView center={center} simulation={simulation} layersData={layersData} onPointSelect={onPointSelect} routePlan={routePlan} />
         <ResizeMap />
         <BaseTiles />
         {visibleLayers.length > 0 && <LayersControl position="topright">
@@ -229,6 +269,7 @@ export default function MarineMap({
         {showDemoLayers && simulation?.vesselPosition && <Marker position={[simulation.vesselPosition.lat, simulation.vesselPosition.lon]} icon={createCustomIcon("#0f172a", "S")}>
           <Popup>Simulated vessel: {simulation.status.replaceAll("_", " ")}<br />{simulation.vesselPosition.lat}, {simulation.vesselPosition.lon}</Popup>
         </Marker>}
+
         {safety?.point && <CircleMarker center={[safety.point.lat, safety.point.lon]} radius={18}
           pathOptions={{ color: safety.color || "#64748b", fillColor: safety.color || "#64748b", fillOpacity: 0.45, weight: 4, dashArray: "3 4" }}>
           <Popup>Weather safety: {safety.risk ? (safety.risk.riskLevel === "LOW" ? "LOW" : safety.risk.riskLevel === "MODERATE" ? "MODERATE" : "CRITICAL") : (safety.error ? "Unavailable" : "Loading")}<br />
@@ -236,7 +277,7 @@ export default function MarineMap({
           </Popup>
         </CircleMarker>}
 
-        {/* Route Planning Polyline Overlays (Phase 11) */}
+        {/* Direct Baseline Path (Unoptimized) Overlay */}
         {routePlan?.directBaselineRoute?.coordinates && (
           <Polyline
             positions={routePlan.directBaselineRoute.coordinates}
@@ -244,64 +285,115 @@ export default function MarineMap({
               color: "#f43f5e",
               weight: 3,
               dashArray: "6, 8",
-              opacity: 0.8,
+              opacity: 0.85,
             }}
           >
             <Popup>
               <div className="text-xs text-slate-900 font-sans">
-                <strong>Direct Baseline Path (Unoptimized)</strong>
+                <strong style={{ color: "#e11d48" }}>Direct Baseline Path (Unoptimized)</strong>
                 <br />
                 Distance: {routePlan.directBaselineRoute.totalDistanceNm} NM
                 <br />
-                Risk Score: {routePlan.directBaselineRoute.riskScore}/100
+                Risk Score: <strong>{routePlan.directBaselineRoute.riskScore}/100</strong>
+                <br />
+                Max Wave Swell: {routePlan.directBaselineRoute.maxWaveExposureM} m
+                <br />
+                Hazards: {routePlan.directBaselineRoute.hazardBreaches > 0 ? `⚠️ ${routePlan.directBaselineRoute.hazardBreaches} Breach Detected` : "Clear"}
               </div>
             </Popup>
           </Polyline>
         )}
 
+        {/* Lower-Risk Recommended Route Overlay */}
         {routePlan?.lowerRiskProposedRoute?.coordinates && (
           <Polyline
             positions={routePlan.lowerRiskProposedRoute.coordinates}
-            pathOptions={{ color: "#06b6d4", weight: 4, opacity: 0.95 }}
+            pathOptions={{
+              color: "#06b6d4",
+              weight: 4,
+              opacity: 0.95,
+            }}
           >
             <Popup>
               <div className="text-xs text-slate-900 font-sans">
-                <strong style="color: #0891b2;">
+                <strong style={{ color: "#0891b2" }}>
                   Lower-Risk Route Recommendation
                 </strong>
                 <br />
                 Distance: {routePlan.lowerRiskProposedRoute.totalDistanceNm} NM
                 <br />
-                Risk Score: {routePlan.lowerRiskProposedRoute.riskScore}/100
+                Risk Score: <strong>{routePlan.lowerRiskProposedRoute.riskScore}/100</strong> ({routePlan.lowerRiskProposedRoute.riskLevel})
                 <br />
-                Geofence: 100% Clear
+                Max Wave Swell: {routePlan.lowerRiskProposedRoute.maxWaveExposureM} m (Sheltered)
+                <br />
+                Geofence: <span style={{ color: "#059669", fontWeight: "bold" }}>100% Clear of Restricted Zones</span>
               </div>
             </Popup>
           </Polyline>
         )}
 
-        {/* Waypoint Markers for Route */}
+        {/* Interactive Waypoint Markers Along Recommended Route */}
+        {routePlan?.lowerRiskProposedRoute?.turnByTurnDirectives?.map((leg, idx) => (
+          <CircleMarker
+            key={`wp_${idx}`}
+            center={leg.toCoordinates}
+            radius={5}
+            pathOptions={{
+              color: "#06b6d4",
+              fillColor: "#0891b2",
+              fillOpacity: 0.9,
+              weight: 2,
+            }}
+          >
+            <Popup>
+              <div className="text-xs text-slate-900 font-sans">
+                <strong style={{ color: "#0891b2" }}>Waypoint {idx + 1}</strong>
+                <br />
+                Course: <strong>{leg.bearingDegrees}°</strong> &bull; Leg: <strong>{leg.distanceNm} NM</strong> ({leg.estimatedMinutes} mins)
+                <br />
+                Local Wave Swell: {leg.waveHeightM} m &bull; Wind: {leg.windSpeedKmh} km/h
+                <br />
+                Status: <span style={{ color: leg.geofenceClear ? "#059669" : "#dc2626", fontWeight: "bold" }}>
+                  {leg.geofenceClear ? "✅ Clear of Hazards" : "⚠️ Proximity Alert"}
+                </span>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Departure Origin Marker (Live GPS Radar vs Harbor Anchor) */}
         {routePlan?.origin?.coordinates && (
           <Marker
             position={routePlan.origin.coordinates}
-            icon={createCustomIcon("#10b981", "⚓")}
+            icon={routePlan.origin.isLive ? createLiveGpsIcon() : createCustomIcon("#10b981", "⚓")}
           >
             <Popup>
-              <div className="text-xs text-slate-900 font-sans font-bold">
-                Departure: {routePlan.origin.name}
+              <div className="text-xs text-slate-900 font-sans">
+                <strong style={{ color: routePlan.origin.isLive ? "#0891b2" : "#059669" }}>
+                  {routePlan.origin.isLive ? "📍 Live Vessel GPS Position" : "Departure Harbor"}
+                </strong>
+                <br />
+                {routePlan.origin.name}
+                <br />
+                Coordinates: {routePlan.origin.coordinates[0]?.toFixed(4)}°N, {routePlan.origin.coordinates[1]?.toFixed(4)}°E
               </div>
             </Popup>
           </Marker>
         )}
 
+        {/* Destination Target Marker */}
         {routePlan?.destination?.coordinates && (
           <Marker
             position={routePlan.destination.coordinates}
             icon={createCustomIcon("#06b6d4", "🎯")}
           >
             <Popup>
-              <div className="text-xs text-slate-900 font-sans font-bold">
-                Destination: {routePlan.destination.name}
+              <div className="text-xs text-slate-900 font-sans">
+                <strong style={{ color: "#0891b2" }}>Target Destination Ground</strong>
+                <br />
+                {routePlan.destination.name}
+                <br />
+                Coordinates: {routePlan.destination.coordinates[0]?.toFixed(4)}°N, {routePlan.destination.coordinates[1]?.toFixed(4)}°E
               </div>
             </Popup>
           </Marker>

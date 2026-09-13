@@ -4,5 +4,6 @@ const routeController = require('../controllers/route.controller');
 
 router.post('/plan', routeController.planRoute);
 router.get('/waypoints', routeController.getHarborsAndDestinations);
+router.get('/templates', routeController.getRouteTemplates);
 
 module.exports = router;
