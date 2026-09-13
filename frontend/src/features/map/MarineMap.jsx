@@ -197,6 +197,7 @@ function bindMetadata(feature, layer) {
 }
 
 export default function MarineMap({
+  baseTiles,
   layersData,
   selectedSector = "Mumbai Coast",
   onSelectSector,
@@ -299,7 +300,7 @@ export default function MarineMap({
           routeGeometry={routeGeometry}
         />
         <ResizeMap />
-        <BaseTiles />
+        {baseTiles || <BaseTiles />}
         {visibleLayers.length > 0 && <LayersControl position="topright">
           {GIS_LAYERS.filter(([key]) => visibleLayers.includes(key)).map(([key, name, color, fillColor]) => (
             <LayersControl.Overlay checked name={name} key={key}>
